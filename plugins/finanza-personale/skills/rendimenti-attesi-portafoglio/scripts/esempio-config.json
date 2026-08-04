@@ -1,0 +1,113 @@
+{
+  "_LEGGIMI": "TEMPLATE — i valori marcati 'DA VERIFICARE' vanno rieseguiti da fonte live prima di ogni uso (references/fonti-dati.md). Portafoglio d'esempio: 40% USA, 20% sviluppati ex-USA, 10% EM, 30% BTP.",
+
+  "meta": {
+    "label": "Esempio metodologico — 40 USA / 20 exUSA / 10 EM / 30 BTP",
+    "as_of": "2026-06-30",
+    "base_currency": "EUR",
+    "horizon_years": 25,
+    "convention": "per-share",
+    "notes": "Convenzione per-azione: la crescita incorpora gia i buyback netti. Non aggiungere net buyback yield."
+  },
+
+  "inflation": {
+    "value": 0.025,
+    "source": "DA VERIFICARE — placeholder 2,5% da TB-339 (Cleveland Fed, inflazione USA). Per un investitore in EUR sostituire con attesa area euro: BCE Survey of Professional Forecasters long-term oppure swap inflazione 5y5y."
+  },
+
+  "costs": { "bollo": 0.0020 },
+
+  "tax": { "equity_rate": 0.26, "bond_rate": 0.125, "apply": true },
+
+  "portfolio": {
+    "name": "Proposto",
+    "sleeves": [
+      {
+        "name": "USA", "kind": "equity", "weight": 0.40,
+        "isin": null, "ter": 0.0007, "volatility": 0.16,
+        "dividend_yield": 0.0112, "real_growth": 0.027, "valuation_change": 0.0,
+        "source": "DY: MSCI USA factsheet 30/06/2026 (via TB-339, da riverificare). g: AQR CMA 2026, crescita reale EPS per azione. TER: indicativo."
+      },
+      {
+        "name": "Sviluppati ex-USA", "kind": "equity", "weight": 0.20,
+        "isin": null, "ter": 0.0015, "volatility": 0.16,
+        "dividend_yield": 0.0256, "real_growth": 0.025, "valuation_change": 0.0,
+        "source": "DY: MSCI World ex USA factsheet 30/06/2026 (via TB-339, da riverificare). g: AQR CMA 2026. TER: indicativo."
+      },
+      {
+        "name": "Mercati emergenti", "kind": "equity", "weight": 0.10,
+        "isin": null, "ter": 0.0018, "volatility": 0.20,
+        "dividend_yield": 0.0193, "real_growth": 0.026, "valuation_change": 0.0,
+        "source": "DY: MSCI Emerging Markets factsheet 30/06/2026 (VERIFICATO: 1,93%). g: AQR CMA 2026, per azione (attenzione alla diluizione EM, TB-313). TER: indicativo."
+      },
+      {
+        "name": "BTP", "kind": "bond", "weight": 0.30,
+        "isin": null, "ter": 0.0, "volatility": 0.05,
+        "ytw": 0.0311, "roll_down": 0.0, "credit_loss": 0.0, "hedging_carry": 0.0,
+        "duration": 7.0, "tax_rate": 0.125,
+        "source": "PROXY — YTW 3,11% e duration 7,0 del Bloomberg Euro Aggregate Treasury (Vanguard factsheet 30/06/2026, VERIFICATO). Sostituire con lo YTM effettivo dei BTP in portafoglio calcolato da analisi-titoli-di-stato-eu. roll_down=0 come default prudente."
+      }
+    ]
+  },
+
+  "benchmarks": [
+    {
+      "name": "BM1 — 70% MSCI ACWI + 30% Euro Agg Treasury",
+      "sleeves": [
+        {
+          "name": "MSCI ACWI", "kind": "equity", "weight": 0.70,
+          "isin": "IE00B6R52259", "ter": 0.0020, "volatility": 0.16,
+          "dividend_yield": 0.0157, "real_growth": 0.026, "valuation_change": 0.0,
+          "source": "DY VERIFICATO: MSCI ACWI Index factsheet 30/06/2026 = 1,57%. TER VERIFICATO 0,20%. g: AQR CMA 2026."
+        },
+        {
+          "name": "Euro Agg Treasury", "kind": "bond", "weight": 0.30,
+          "isin": "IE00BH04GL39", "ter": 0.0007, "volatility": 0.05,
+          "ytw": 0.0311, "roll_down": 0.0, "credit_loss": 0.0, "hedging_carry": 0.0,
+          "duration": 7.0, "tax_rate": 0.125,
+          "source": "VERIFICATO: Vanguard EUR Eurozone Government Bond factsheet 30/06/2026 — YTW 3,11%, duration 7,0 anni, scadenza media 8,6, OCF 0,07%."
+        }
+      ]
+    },
+    {
+      "name": "BM2 — 70% S&P 500 + 30% Euro Agg Treasury",
+      "sleeves": [
+        {
+          "name": "S&P 500", "kind": "equity", "weight": 0.70,
+          "isin": "IE00B5BMR087", "ter": 0.0007, "volatility": 0.16,
+          "dividend_yield": 0.0112, "real_growth": 0.027, "valuation_change": 0.0,
+          "source": "DY: proxy MSCI USA (1,12%) — S&P 500 e MSCI USA differiscono marginalmente, PROXY DICHIARATO. TER VERIFICATO 0,07% (tracking difference storica negativa)."
+        },
+        {
+          "name": "Euro Agg Treasury", "kind": "bond", "weight": 0.30,
+          "isin": "IE00BH04GL39", "ter": 0.0007, "volatility": 0.05,
+          "ytw": 0.0311, "roll_down": 0.0, "credit_loss": 0.0, "hedging_carry": 0.0,
+          "duration": 7.0, "tax_rate": 0.125,
+          "source": "VERIFICATO come sopra."
+        }
+      ]
+    }
+  ],
+
+  "correlation": [
+    [1.00, 0.88, 0.75, 0.15],
+    [0.88, 1.00, 0.80, 0.15],
+    [0.75, 0.80, 1.00, 0.15],
+    [0.15, 0.15, 0.15, 1.00]
+  ],
+
+  "bottom_up": {
+    "source": "Capital market assumptions a 10 anni, lug-2026: BlackRock, J.P. Morgan, Amundi, Capital Group, Schwab (via TB-339)",
+    "currency": "USD (presunto — DA VERIFICARE casa per casa)",
+    "horizon": "10 anni",
+    "basis": "n/d — geometrico vs aritmetico DA VERIFICARE",
+    "map": {
+      "USA": [0.085, 0.067, 0.065, 0.061, 0.061],
+      "Sviluppati ex-USA": [0.080, 0.075, 0.071, 0.057, 0.072],
+      "Mercati emergenti": [0.073, 0.078, 0.072, 0.065, 0.071],
+      "BTP": [0.044, 0.047, 0.035, 0.043, 0.040]
+    }
+  },
+
+  "sensitivity": { "growth_delta": 0.01, "inflation_delta": 0.005 }
+}

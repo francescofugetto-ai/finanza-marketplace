@@ -1,0 +1,26 @@
+# ─── file generati da Python ───
+# Non devono MAI entrare nel repository: sono binari, si rigenerano da soli
+# a ogni esecuzione, e quando due copie divergono Git non sa fonderli e
+# dichiara un conflitto. Quattro dei sei conflitti che hanno bloccato la
+# pubblicazione del 2 agosto 2026 erano file .pyc.
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ─── ambienti virtuali ───
+.venv/
+venv/
+env/
+
+# ─── sistema operativo ───
+Thumbs.db
+Desktop.ini
+desktop.ini
+.DS_Store
+
+# ─── scarti di lavorazione ───
+*.rej
+*.orig
+*.bak
+*.patch
+*~

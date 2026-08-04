@@ -1,0 +1,15 @@
+{
+  "name": "fra-finanza",
+  "description": "Marketplace privato: strumenti di consulenza finanziaria indipendente area euro.",
+  "owner": {
+    "name": "Francesco"
+  },
+  "plugins": [
+    {
+      "name": "finanza-personale",
+      "source": "./plugins/finanza-personale",
+      "description": "Sette skill di consulenza finanziaria indipendente area euro: metodo fiduciario e flusso di lavoro comune, portafogli ETF, titoli di Stato singoli, distillazione fonti con filtro di persistenza, rendimenti attesi, Monte Carlo, registro decisionale.",
+      "category": "finance"
+    }
+  ]
+}

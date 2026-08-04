@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!-- FILL: titolo simulazione --></title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  /* STESSI TOKEN della skill analisi-documenti: sfondo chiaro, Inter, colori semantici */
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#FAF9F7;--surface:#FFFFFF;--surface-alt:#F3F2EF;
+    --border:rgba(11,11,11,0.10);--border-strong:rgba(11,11,11,0.18);
+    --text-primary:#0B0B0B;--text-secondary:#52514E;--text-muted:#898781;
+    --accent-blue:#2A78D6;--accent-blue-bg:#E6F1FB;--accent-blue-border:#B5D4F4;
+    --accent-amber:#BA7517;--accent-amber-bg:#FAEEDA;--accent-amber-border:#FAC775;
+    --accent-red:#A32D2D;--accent-red-bg:#FCEBEB;--accent-red-border:#F7C1C1;
+    --accent-green:#3B6D11;--accent-green-bg:#EAF3DE;--accent-green-border:#C0DD97;
+    --accent-purple:#534AB7;--accent-purple-bg:#EEEDFE;--accent-purple-border:#CECBF6;
+    --radius-sm:6px;--radius-md:10px;--radius-lg:14px;
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  body{font-family:var(--font);background:var(--bg);color:var(--text-primary);font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  .page{max-width:800px;margin:0 auto;padding:3rem 2rem 5rem}
+  .kicker{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+  .article-headline{font-size:26px;font-weight:500;line-height:1.25;margin-bottom:6px}
+  .article-sub{font-size:14px;color:var(--text-secondary);margin-bottom:2.5rem}
+  .section-label{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin:2.5rem 0 10px}
+  h2{font-size:17px;font-weight:500;margin:2.5rem 0 .5rem}
+  h3{font-size:14px;font-weight:500;margin:1.5rem 0 .4rem}
+  p{font-size:14px;line-height:1.75;margin-bottom:1rem}
+  /* stat cards */
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:1.2rem 0}
+  .stat{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-md);padding:.9rem 1rem}
+  .stat-lbl{font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+  .stat-val{font-size:22px;font-weight:500}
+  .stat-note{font-size:11px;color:var(--text-muted);margin-top:3px}
+  /* box semantici */
+  .box-accent,.box-success,.box-warn,.box-danger{padding:14px 16px;margin:1.2rem 0;font-size:13px;line-height:1.65}
+  .box-accent{background:var(--accent-blue-bg);border-left:3px solid var(--accent-blue-border)}
+  .box-accent strong{color:var(--accent-blue);font-weight:500}
+  .box-success{background:var(--accent-green-bg);border-left:3px solid var(--accent-green-border)}
+  .box-success strong{color:var(--accent-green);font-weight:500}
+  .box-warn{background:var(--accent-amber-bg);border-left:3px solid var(--accent-amber-border)}
+  .box-warn strong{color:var(--accent-amber);font-weight:500}
+  .box-danger{background:var(--accent-red-bg);border-left:3px solid var(--accent-red-border)}
+  .box-danger strong{color:var(--accent-red);font-weight:500}
+  /* assunzioni: tabella key-value */
+  .assume-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:1rem 0}
+  .assume{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-sm);padding:.6rem .8rem}
+  .assume-k{font-size:11px;color:var(--text-muted)}
+  .assume-v{font-size:14px;font-weight:500}
+  /* chart */
+  .chart-wrap{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.25rem;margin:1.5rem 0}
+  .chart-title{font-size:14px;font-weight:500;margin-bottom:4px}
+  .chart-sub{font-size:12px;color:var(--text-secondary);margin-bottom:1rem}
+  .chart-canvas-wrap{position:relative;width:100%;height:300px}
+  .toggle-row{display:flex;gap:6px;margin-bottom:12px}
+  .toggle{font-size:12px;font-weight:500;padding:4px 12px;border-radius:99px;border:.5px solid var(--border-strong);background:var(--surface);color:var(--text-secondary);cursor:pointer}
+  .toggle.active{background:var(--accent-blue-bg);color:#0C447C;border-color:var(--accent-blue-border)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px}
+  .leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-secondary)}
+  .leg-sq{width:10px;height:10px;border-radius:2px}
+  /* tabella percentili */
+  .cmp-table-wrap{overflow-x:auto;margin:1.2rem 0;border:.5px solid var(--border-strong);border-radius:var(--radius-md)}
+  table.cmp{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--surface)}
+  table.cmp th,table.cmp td{padding:9px 12px;text-align:right;border-bottom:.5px solid var(--border);white-space:nowrap}
+  table.cmp th:first-child,table.cmp td:first-child{text-align:left}
+  table.cmp thead th{background:var(--surface-alt);font-weight:500;color:var(--text-secondary);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  table.cmp tbody tr:last-child td{border-bottom:none}
+  table.cmp .num{font-variant-numeric:tabular-nums}
+  /* gauge P(obiettivo) */
+  .gauge-wrap{display:flex;align-items:center;gap:1.5rem;background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.25rem;margin:1.5rem 0}
+  .gauge-num{font-size:40px;font-weight:500;line-height:1}
+  .gauge-bar{flex:1}
+  .gauge-track{height:14px;background:var(--surface-alt);border-radius:99px;overflow:hidden}
+  .gauge-fill{height:100%;border-radius:99px}
+  .gauge-lbl{font-size:12px;color:var(--text-secondary);margin-top:6px}
+  /* conclusione */
+  .conclusion-box{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.5rem;margin:2rem 0 1rem}
+  .conclusion-box h3{font-size:15px;font-weight:500;margin:0 0 10px}
+  .conclusion-list{list-style:none}
+  .conclusion-list li{font-size:14px;line-height:1.65;padding:9px 0;border-bottom:.5px solid var(--border);display:flex;gap:8px;align-items:flex-start}
+  .conclusion-list li:last-child{border-bottom:none}
+  .c-arrow{color:var(--accent-blue);flex-shrink:0;margin-top:2px}
+  .footer-note{font-size:11px;color:var(--text-muted);margin-top:2rem;border-top:.5px solid var(--border-strong);padding-top:1rem;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="kicker">Simulazione Monte Carlo · <!-- FILL data --></div>
+<h1 class="article-headline"><!-- FILL: es. "Bucket B — proiezione a 25 anni" --></h1>
+<p class="article-sub"><!-- FILL: cosa si simula, in 1 riga --></p>
+
+<!-- ASSUNZIONI: sempre in chiaro (trasparenza, no scatola nera) -->
+<div class="section-label">Assunzioni della simulazione</div>
+<div class="assume-grid" id="assumeGrid"><!-- popolato da JS da MC.assumptions --></div>
+<div class="box-accent"><strong>Come leggerla.</strong> Non è una previsione: è la distribuzione di migliaia di futuri possibili dati questi parametri. La banda mostra dove cade l'80% degli esiti (p10–p90); la linea è la mediana (p50). Cambiando le assunzioni cambia tutto.</div>
+
+<!-- ASSET E CORRELAZIONI: si popola solo in multi-asset (MC.assets presente) -->
+<div id="assetsSection"></div>
+
+<!-- KPI -->
+<div class="stat-row" id="kpiRow"><!-- popolato da JS --></div>
+
+<!-- FAN CHART con toggle lordo/netto/reale -->
+<div class="chart-wrap">
+  <div class="chart-title">Evoluzione del capitale — fascia di esiti</div>
+  <div class="chart-sub">p10–p90 (banda) e mediana p50. Reale = potere d'acquisto di oggi.</div>
+  <div class="toggle-row">
+    <button class="toggle" data-layer="gross">Lordo</button>
+    <button class="toggle active" data-layer="net">Netto costi</button>
+    <button class="toggle" data-layer="real">Netto + inflazione</button>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><span class="leg-sq" style="background:rgba(42,120,214,0.18)"></span>Fascia p10–p90</div>
+    <div class="leg-item"><span class="leg-sq" style="background:#2a78d6"></span>Mediana (p50)</div>
+  </div>
+  <div class="chart-canvas-wrap"><canvas id="fanChart"></canvas></div>
+</div>
+
+<!-- P(OBIETTIVO) -->
+<div class="section-label">Probabilità di centrare l'obiettivo</div>
+<div class="gauge-wrap">
+  <div class="gauge-num" id="goalPct">—</div>
+  <div class="gauge-bar">
+    <div class="gauge-track"><div class="gauge-fill" id="goalFill" style="width:0%"></div></div>
+    <div class="gauge-lbl" id="goalLbl"></div>
+  </div>
+</div>
+<div id="goalVerdict"><!-- box success/warn/danger inserito da JS in base alla probabilità --></div>
+
+<!-- TABELLA PERCENTILI TERMINALI -->
+<div class="section-label">Distribuzione a fine orizzonte</div>
+<div class="cmp-table-wrap">
+  <table class="cmp">
+    <thead><tr><th>Strato</th><th>p10</th><th>p25</th><th>p50</th><th>p75</th><th>p90</th></tr></thead>
+    <tbody id="termTable"><!-- popolato da JS --></tbody>
+  </table>
+</div>
+
+<!-- INTERPRETAZIONE -->
+<div class="conclusion-box">
+  <h3><!-- FILL: "Cosa significa" --></h3>
+  <ul class="conclusion-list">
+    <li><span class="c-arrow">→</span><!-- FILL: take azionabile, es. "alza il PAC di X per portare P(obiettivo) sopra il 75%" --></li>
+  </ul>
+</div>
+
+<div class="footer-note">
+  Simulazione Monte Carlo a <span id="fNpaths"></span> scenari, distribuzione <span id="fDist"></span>.
+  I rendimenti passati non garantiscono quelli futuri; le distribuzioni reali hanno code più grasse di un modello normale.
+  Strumento di pianificazione probabilistica, non una previsione né un consiglio personalizzato.
+  Assunzioni da verificare/aggiornare. <!-- FILL: data, fonti delle assunzioni -->
+</div>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   INIETTA QUI l'output JSON di scripts/montecarlo.py (results.json):
+   const MC = { ...incolla qui... };
+   I dati sotto sono SOLO un placeholder per far vedere il rendering.
+   ════════════════════════════════════════════════════════════════ */
+const MC = {
+  assumptions:{initial:0,contribution:1000,years:20,exp_return:0.065,volatility:0.15,ter:0.002,inflation:0.02,n_paths:40000,dist:"lognormal",goal:500000,real_goal:true},
+  years_axis:[0,5,10,15,20],
+  bands:{
+    net:{0:{p10:0,p50:0,p90:0},5:{p10:55000,p50:72000,p90:95000},10:{p10:120000,p50:175000,p90:255000},15:{p10:200000,p50:300000,p90:470000},20:{p10:247000,p50:420000,p90:755000}},
+    gross:{0:{p10:0,p50:0,p90:0},5:{p10:56000,p50:73000,p90:97000},10:{p10:123000,p50:179000,p90:262000},15:{p10:206000,p50:309000,p90:485000},20:{p10:252000,p50:430000,p90:774000}},
+    real:{0:{p10:0,p50:0,p90:0},5:{p10:50000,p50:65000,p90:86000},10:{p10:98000,p50:144000,p90:209000},15:{p10:149000,p50:223000,p90:349000},20:{p10:166000,p50:283000,p90:508000}}
+  },
+  terminal:{at_year:20,total_contributed:240000,
+    gross:{p10:252000,p25:330000,p50:430000,p75:570000,p90:774000},
+    net:{p10:247000,p25:324000,p50:420000,p75:558000,p90:755000},
+    real:{p10:166000,p25:218000,p50:283000,p75:375000,p90:508000}},
+  goal:{goal:500000,basis:"real",p_goal:0.107,median_value:283000,median_shortfall_if_miss:225000,prob_miss:0.893},
+  prob_loss_real_vs_contributed:0.35,
+  percentiles_reported:[5,10,25,50,75,90,95]
+};
+
+const EUR = v => '€' + Math.round(v).toLocaleString('it-IT');
+const PCT = v => (v*100).toFixed(1) + '%';
+const A = MC.assumptions;
+
+/* ── Assunzioni ── */
+const aLabels = {initial:'PIC iniziale',contribution:'PAC/periodo',years:'Orizzonte',exp_return:'Rend. atteso',volatility:'Volatilità',ter:'TER',inflation:'Inflazione',n_paths:'Scenari',dist:'Distribuzione'};
+const aFmt = {initial:EUR,contribution:EUR,years:v=>v+' anni',exp_return:PCT,volatility:PCT,ter:PCT,inflation:PCT,n_paths:v=>v.toLocaleString('it-IT'),dist:v=>v};
+document.getElementById('assumeGrid').innerHTML = Object.keys(aLabels).map(k=>
+  `<div class="assume"><div class="assume-k">${aLabels[k]}</div><div class="assume-v">${(aFmt[k]||(x=>x))(A[k])}</div></div>`).join('');
+
+/* ── Asset e correlazioni (solo multi-asset) ── */
+if(MC.assets && MC.portfolio_implied){
+  const pi=MC.portfolio_implied;
+  const rows = MC.assets.map(a=>`<tr><td>${a.name}</td><td class="num">${PCT(a.weight)}</td><td class="num">${PCT(a.exp_return)}</td><td class="num">${PCT(a.volatility)}</td><td class="num">${PCT(a.ter||0)}</td></tr>`).join('');
+  document.getElementById('assetsSection').innerHTML = `
+    <div class="section-label">Asset, pesi e correlazioni</div>
+    <div class="cmp-table-wrap"><table class="cmp">
+      <thead><tr><th>Asset</th><th>Peso</th><th>Rend. atteso</th><th>Volatilità</th><th>TER</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="box-success"><strong>Beneficio di diversificazione.</strong> La volatilità del portafoglio è ${PCT(pi.volatility)}, contro ${PCT(pi.weighted_avg_volatility)} della media pesata dei singoli asset: le correlazioni < 1 tagliano ${PCT(pi.diversification_vol_saving)} di rischio "gratis". Rendimento atteso netto di portafoglio ${PCT(pi.exp_return_net)}, ribilanciamento ${A.rebalance==='none'?'assente (drift)':A.rebalance==='annual'?'annuale':'ogni '+A.rebalance+' periodi'}.</div>`;
+}
+
+/* ── KPI ── */
+const t = MC.terminal, layerForGoal = MC.goal ? MC.goal.basis : 'real';
+const kpi = [
+  {l:'Totale versato',v:EUR(t.total_contributed),n:''},
+  {l:'Mediana finale (reale)',v:EUR(t.real.p50),n:'potere d\'acquisto di oggi'},
+  MC.goal ? {l:'P(obiettivo)',v:PCT(MC.goal.p_goal),n:'su base '+(MC.goal.basis==='real'?'reale':'nominale')} : {l:'Money multiple p50',v:(t.money_multiple_net?t.money_multiple_net.p50.toFixed(2):'—')+'×',n:''},
+  {l:'Prob. perdita reale',v:PCT(MC.prob_loss_real_vs_contributed),n:'sotto il versato, in reale'}
+];
+document.getElementById('kpiRow').innerHTML = kpi.map(k=>
+  `<div class="stat"><div class="stat-lbl">${k.l}</div><div class="stat-val">${k.v}</div><div class="stat-note">${k.n}</div></div>`).join('');
+
+/* ── Tabella terminale ── */
+const rows = [['Lordo','gross'],['Netto costi','net'],['Netto + inflazione','real']];
+document.getElementById('termTable').innerHTML = rows.map(([lbl,key])=>{
+  const s=t[key];
+  return `<tr><td>${lbl}</td>${['p10','p25','p50','p75','p90'].map(p=>`<td class="num">${EUR(s[p])}</td>`).join('')}</tr>`;
+}).join('');
+
+/* ── P(obiettivo) ── */
+if(MC.goal){
+  const p=MC.goal.p_goal;
+  document.getElementById('goalPct').textContent=PCT(p);
+  const fill=document.getElementById('goalFill');
+  fill.style.width=(p*100)+'%';
+  const col = p>=0.75 ? 'var(--accent-green)' : p>=0.5 ? 'var(--accent-amber)' : 'var(--accent-red)';
+  fill.style.background=col;
+  document.getElementById('goalPct').style.color=col;
+  document.getElementById('goalLbl').textContent=`Obiettivo ${EUR(MC.goal.goal)} (${MC.goal.basis==='real'?'in € di oggi':'nominale'}) · mediana attesa ${EUR(MC.goal.median_value)}`;
+  let v;
+  if(p>=0.75) v=`<div class="box-success"><strong>On track.</strong> L'obiettivo è raggiunto in ${PCT(p)} degli scenari. Margine adeguato.</div>`;
+  else if(p>=0.5) v=`<div class="box-warn"><strong>Borderline.</strong> Raggiunto in ${PCT(p)}: serve un'azione correttiva (più PAC, più orizzonte, o obiettivo più basso). Shortfall mediano se manca: ${EUR(MC.goal.median_shortfall_if_miss)}.</div>`;
+  else v=`<div class="box-danger"><strong>Sottodimensionato.</strong> Raggiunto solo nel ${PCT(p)} degli scenari. Obiettivo non finanziabile a questi parametri: ridefinire target, timeline o contributo. Shortfall mediano: ${EUR(MC.goal.median_shortfall_if_miss)}.</div>`;
+  document.getElementById('goalVerdict').innerHTML=v;
+}else{
+  document.querySelector('.gauge-wrap').style.display='none';
+}
+
+/* ── Footer ── */
+document.getElementById('fNpaths').textContent=A.n_paths.toLocaleString('it-IT');
+document.getElementById('fDist').textContent=A.dist==='t'?'t di Student (code grasse)':'lognormale';
+
+/* ── FAN CHART (toggle lordo/netto/reale) ── */
+const gridC='#E1E0D9',tickC='#898781';
+let chart;
+function buildFan(layer){
+  const ax=MC.years_axis, b=MC.bands[layer];
+  const p10=ax.map(y=>b[y].p10), p50=ax.map(y=>b[y].p50), p90=ax.map(y=>b[y].p90);
+  const data={labels:ax,datasets:[
+    {label:'p90',data:p90,borderColor:'transparent',backgroundColor:'rgba(42,120,214,0.14)',fill:'+1',pointRadius:0,tension:0.2},
+    {label:'p10',data:p10,borderColor:'transparent',backgroundColor:'rgba(42,120,214,0.14)',fill:false,pointRadius:0,tension:0.2},
+    {label:'Mediana',data:p50,borderColor:'#2a78d6',borderWidth:2,pointRadius:0,fill:false,tension:0.2}
+  ]};
+  const opts={responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+EUR(c.raw)}}},
+    scales:{x:{grid:{color:gridC},ticks:{color:tickC,font:{size:11},callback:(v,i)=>MC.years_axis[i]+'y'}},
+            y:{grid:{color:gridC},ticks:{color:tickC,font:{size:11},callback:v=>'€'+(v/1000)+'k'}}}};
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('fanChart'),{type:'line',data,options:opts});
+}
+buildFan('net');
+document.querySelectorAll('.toggle').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.toggle').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); buildFan(btn.dataset.layer);
+}));
+</script>
+</body>
+</html>

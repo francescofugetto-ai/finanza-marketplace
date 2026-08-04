@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!-- FILL: titolo report --></title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     DESIGN SYSTEM — NON modificare i token. Sfondo SEMPRE chiaro.
+     Palette semantica: blu=info/concetto · verde=positivo/forza ·
+     ambra=cautela · rosso=rischio/debolezza · viola=fattoriale/serie 2.
+     ════════════════════════════════════════════════════════════════ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #FAF9F7;
+    --surface: #FFFFFF;
+    --surface-alt: #F3F2EF;
+    --border: rgba(11,11,11,0.10);
+    --border-strong: rgba(11,11,11,0.18);
+    --text-primary: #0B0B0B;
+    --text-secondary: #52514E;
+    --text-muted: #898781;
+    --accent-blue: #2A78D6;   --accent-blue-bg: #E6F1FB;   --accent-blue-border: #B5D4F4;
+    --accent-amber: #BA7517;  --accent-amber-bg: #FAEEDA;  --accent-amber-border: #FAC775;
+    --accent-red: #A32D2D;    --accent-red-bg: #FCEBEB;    --accent-red-border: #F7C1C1;
+    --accent-green: #3B6D11;  --accent-green-bg: #EAF3DE;  --accent-green-border: #C0DD97;
+    --accent-purple: #534AB7; --accent-purple-bg: #EEEDFE; --accent-purple-border: #CECBF6;
+    --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body { font-family: var(--font); background: var(--bg); color: var(--text-primary); font-size: 14px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+  .page { max-width: 820px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+
+  /* separatore tra report multipli */
+  .report-sep { display: flex; align-items: center; gap: 1rem; margin: 4rem 0 3rem; }
+  .report-sep::before, .report-sep::after { content: ''; flex: 1; height: 1px; background: var(--border-strong); }
+  .report-sep-label { font-size: 11px; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+
+  /* header articolo */
+  .kicker { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .article-headline { font-size: 26px; font-weight: 500; color: var(--text-primary); line-height: 1.25; margin-bottom: 6px; }
+  .article-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 2.5rem; }
+
+  /* heading di sezione */
+  .section-label { font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); margin: 2.5rem 0 10px; }
+  h2 { font-size: 17px; font-weight: 500; color: var(--text-primary); margin: 2.5rem 0 .5rem; }
+  h3 { font-size: 14px; font-weight: 500; color: var(--text-primary); margin: 1.5rem 0 .4rem; }
+  p { font-size: 14px; color: var(--text-primary); line-height: 1.75; margin-bottom: 1rem; }
+  p:last-child { margin-bottom: 0; }
+  hr { border: none; border-top: .5px solid var(--border-strong); margin: 2rem 0; }
+  a { color: var(--accent-blue); text-decoration: none; }
+
+  /* glossario termini tecnici */
+  .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 1.2rem 0; }
+  .g-card { background: var(--surface); border: .5px solid var(--border-strong); border-radius: var(--radius-md); padding: 12px 14px; }
+  .g-term { font-size: 12px; font-weight: 500; color: var(--accent-blue); margin-bottom: 4px; }
+  .g-def  { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+
+  /* grafici */
+  .chart-wrap { background: var(--surface); border: .5px solid var(--border-strong); border-radius: var(--radius-lg); padding: 1.25rem; margin: 1.5rem 0; }
+  .chart-title { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+  .chart-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 1rem; }
+  .chart-canvas-wrap { position: relative; width: 100%; height: 260px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+  .leg-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* term-box (definizione inline) */
+  .term-box { background: var(--surface-alt); border-left: 3px solid var(--accent-blue); padding: 14px 16px; margin: 1.2rem 0; }
+  .term-box .term { font-size: 12px; font-weight: 500; color: var(--accent-blue); margin-bottom: 6px; }
+  .term-box .def { font-size: 13px; color: var(--text-primary); line-height: 1.65; }
+
+  /* box semantici — USARE IL COLORE SECONDO IL SIGNIFICATO */
+  .box-warn { background: var(--accent-amber-bg); border-left: 3px solid var(--accent-amber-border); padding: 14px 16px; margin: 1.2rem 0; font-size: 13px; color: var(--text-primary); line-height: 1.65; }
+  .box-warn strong { color: var(--accent-amber); font-weight: 500; }
+  .box-success { background: var(--accent-green-bg); border-left: 3px solid var(--accent-green-border); padding: 14px 16px; margin: 1.2rem 0; font-size: 13px; color: var(--text-primary); line-height: 1.65; }
+  .box-success strong { color: var(--accent-green); font-weight: 500; }
+  .box-accent { background: var(--accent-blue-bg); border-left: 3px solid var(--accent-blue-border); padding: 14px 16px; margin: 1.2rem 0; font-size: 13px; color: var(--text-primary); line-height: 1.65; }
+  .box-accent strong { color: var(--accent-blue); font-weight: 500; }
+  .box-danger { background: var(--accent-red-bg); border-left: 3px solid var(--accent-red-border); padding: 14px 16px; margin: 1.2rem 0; font-size: 13px; color: var(--text-primary); line-height: 1.65; }
+  .box-danger strong { color: var(--accent-red); font-weight: 500; }
+
+  /* stat cards (KPI) */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 1.2rem 0; }
+  .stat { background: var(--surface); border: .5px solid var(--border-strong); border-radius: var(--radius-md); padding: .9rem 1rem; }
+  .stat-lbl { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .stat-val { font-size: 22px; font-weight: 500; color: var(--text-primary); }
+  .stat-note { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  /* pill / badge */
+  .pill { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 99px; margin-right: 4px; }
+  .pill-blue { background: var(--accent-blue-bg); color: #0C447C; }
+  .pill-green { background: var(--accent-green-bg); color: var(--accent-green); }
+  .pill-amber { background: var(--accent-amber-bg); color: var(--accent-amber); }
+  .pill-red { background: var(--accent-red-bg); color: var(--accent-red); }
+  .pill-gray { background: #F1EFE8; color: #444441; }
+  .pill-purple { background: var(--accent-purple-bg); color: var(--accent-purple); }
+
+  /* card strumento/ETF */
+  .etf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 1rem 0; }
+  .etf-card { background: var(--surface); border: .5px solid var(--border-strong); border-radius: var(--radius-md); padding: 1rem; }
+  .etf-name { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+  .etf-role { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+  .etf-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); padding: 3px 0; }
+  .etf-val { font-weight: 500; color: var(--text-primary); }
+
+  /* barre orizzontali (esposizione, fattori) */
+  .factor-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .factor-label { font-size: 13px; color: var(--text-secondary); width: 180px; flex-shrink: 0; }
+  .factor-track { flex: 1; background: var(--surface-alt); border-radius: 4px; height: 22px; overflow: hidden; }
+  .factor-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 12px; font-weight: 500; color: #fff; }
+
+  /* barre top-10 holdings */
+  .top10-bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .top10-label { font-size: 12px; color: var(--text-secondary); width: 145px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top10-track { flex: 1; background: var(--surface-alt); border-radius: 3px; height: 18px; }
+  .top10-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; }
+  .top10-val { font-size: 11px; font-weight: 500; }
+
+  /* scenari */
+  .scenario-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 1rem 0; }
+  .scen { border: .5px solid var(--border-strong); border-radius: var(--radius-lg); padding: 1rem; }
+  .scen-head { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  .scen-body { font-size: 12px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 8px; }
+
+  /* concept + example */
+  .concept-box { background: var(--surface); border: .5px solid var(--border-strong); border-radius: var(--radius-sm); padding: .9rem 1rem; margin: .8rem 0; }
+  .concept-title { font-size: 12px; font-weight: 500; color: var(--accent-blue); margin-bottom: 4px; }
+  .concept-body { font-size: 12px; color: var(--text-secondary); line-height: 1.65; }
+  .example-box { background: var(--surface-alt); border-radius: var(--radius-sm); padding: .8rem 1rem; margin: .6rem 0; }
+  .example-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .example-body { font-size: 12px; color: var(--text-primary); line-height: 1.65; }
+
+  /* tabella di confronto (per modalità B) */
+  .cmp-table-wrap { overflow-x: auto; margin: 1.2rem 0; border: .5px solid var(--border-strong); border-radius: var(--radius-md); }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--surface); }
+  table.cmp th, table.cmp td { padding: 9px 12px; text-align: left; border-bottom: .5px solid var(--border); white-space: nowrap; }
+  table.cmp thead th { background: var(--surface-alt); font-weight: 500; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  table.cmp tbody tr:last-child td { border-bottom: none; }
+  table.cmp td.metric { color: var(--text-secondary); font-weight: 500; white-space: normal; }
+  table.cmp td.best { background: var(--accent-green-bg); color: var(--accent-green); font-weight: 500; }
+  table.cmp td.worst { background: var(--accent-red-bg); color: var(--accent-red); }
+  table.cmp .num { font-variant-numeric: tabular-nums; }
+
+  /* action list numerata */
+  .action-list { list-style: none; }
+  .action-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: .5px solid var(--border); font-size: 13px; color: var(--text-primary); line-height: 1.65; align-items: flex-start; }
+  .action-item:last-child { border-bottom: none; }
+  .action-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-blue-bg); color: var(--accent-blue); font-size: 11px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+
+  /* conclusione */
+  .conclusion-box { background: var(--surface); border: .5px solid var(--border-strong); border-radius: var(--radius-lg); padding: 1.5rem; margin: 2rem 0 1rem; }
+  .conclusion-box h3 { font-size: 15px; font-weight: 500; margin: 0 0 10px; }
+  .conclusion-list { list-style: none; }
+  .conclusion-list li { font-size: 14px; color: var(--text-primary); line-height: 1.65; padding: 9px 0; border-bottom: .5px solid var(--border); display: flex; gap: 8px; align-items: flex-start; }
+  .conclusion-list li:last-child { border-bottom: none; }
+  .c-arrow { color: var(--accent-blue); flex-shrink: 0; margin-top: 2px; font-size: 14px; }
+
+  .footer-note { font-size: 11px; color: var(--text-muted); margin-top: 2rem; border-top: .5px solid var(--border-strong); padding-top: 1rem; line-height: 1.6; }
+
+    /* ─── Componenti v2 — verdetto, fonte, gate dei 5 test ─────────────────
+       Erano documentati nella SKILL come CSS da aggiungere a mano a ogni
+       report. Da oggi sono qui: il banner del verdetto e' l'elemento che
+       dice a colpo d'occhio se bisogna fare qualcosa, e non puo' dipendere
+       dal ricordarsi di incollare del CSS.  ------------------------------ */
+    .verdict-banner { border-radius: var(--radius-lg); padding: 1rem 1.2rem; margin: 1.4rem 0;
+      border: 1.5px solid; display: flex; gap: 14px; align-items: flex-start; }
+    .verdict-banner .vb-tag { font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; padding: 3px 10px; border-radius: 99px; color: #fff; white-space: nowrap; }
+    .vb-noise   { background: #F5F4F1; border-color: var(--border-strong); }
+    .vb-noise   .vb-tag { background: #6B6A66; }
+    .vb-context { background: var(--accent-blue-bg);  border-color: var(--accent-blue-border); }
+    .vb-context .vb-tag { background: var(--accent-blue); }
+    .vb-watch   { background: var(--accent-amber-bg); border-color: var(--accent-amber-border); }
+    .vb-watch   .vb-tag { background: var(--accent-amber); }
+    .vb-action  { background: var(--accent-green-bg); border-color: var(--accent-green-border); }
+    .vb-action  .vb-tag { background: var(--accent-green); }
+    .vb-risk    { background: var(--accent-red-bg);   border-color: var(--accent-red-border); }
+    .vb-risk    .vb-tag { background: var(--accent-red); }
+
+    .source-box { background: var(--surface-alt); border: .5px solid var(--border-strong);
+      border-radius: var(--radius-md); padding: 1rem 1.1rem; margin: 1.2rem 0; font-size: 13px; }
+    .source-box h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; }
+
+    .gate-table td.pass { color: var(--accent-green); font-weight: 600; }
+    .gate-table td.fail { color: var(--accent-red);   font-weight: 600; }
+    .gate-table td.na   { color: var(--text-muted); }
+
+    .trigger-box { background: var(--surface); border: 1.5px dashed var(--accent-amber-border);
+      border-radius: var(--radius-md); padding: 1rem 1.1rem; margin: 1.2rem 0; font-size: 13px; }
+    .trigger-box .tb-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--accent-amber); margin-bottom: 6px; }
+
+    .cost-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px;
+      font-size: 13px; border-top: .5px solid var(--border); padding-top: .6rem; margin-top: .6rem; }
+    .cost-row .tot { font-weight: 600; border-top: .5px solid var(--border-strong); padding-top: 6px; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+<!-- ════════════════════════════════════════════════════════════════
+     GALLERIA COMPONENTI — copia i blocchi che servono, riempi i FILL,
+     CANCELLA quelli che non usi. L'ordine sotto è una scaletta tipica.
+     ════════════════════════════════════════════════════════════════ -->
+
+<!-- ── HEADER (sempre) ── -->
+<div class="kicker"><!-- FILL: Fonte · sezione · data --></div>
+<h1 class="article-headline"><!-- FILL: titolo --></h1>
+<p class="article-sub"><!-- FILL: sottotitolo/autore --></p>
+
+<!-- ── GLOSSARIO (modalità A: spiega OGNI termine tecnico citato) ── -->
+<div class="section-label">Glossario dei termini chiave</div>
+<div class="glossary-grid">
+  <div class="g-card"><div class="g-term"><!-- FILL: termine --></div><div class="g-def"><!-- FILL: definizione 1 riga, con esempio numerico se utile --></div></div>
+  <!-- ripeti g-card per ogni termine -->
+</div>
+
+<!-- ── STAT ROW (KPI di sintesi) ── -->
+<div class="stat-row">
+  <div class="stat"><div class="stat-lbl"><!-- FILL --></div><div class="stat-val"><!-- FILL --></div><div class="stat-note"><!-- FILL --></div></div>
+</div>
+
+<!-- ── CORPO: testo + heading ── -->
+<h2><!-- FILL --></h2>
+<p><!-- FILL --></p>
+
+<!-- ── TERM-BOX (definizione messa in risalto) ── -->
+<div class="term-box"><div class="term"><!-- FILL --></div><div class="def"><!-- FILL --></div></div>
+
+<!-- ── BOX SEMANTICI (scegli il colore in base al significato!) ── -->
+<div class="box-accent"><strong>Concetto.</strong> <!-- FILL: chiave informativa/neutra --></div>
+<div class="box-success"><strong>Punto di forza.</strong> <!-- FILL: positivo --></div>
+<div class="box-warn"><strong>Attenzione.</strong> <!-- FILL: cautela/limite --></div>
+<div class="box-danger"><strong>Rischio.</strong> <!-- FILL: debolezza/pericolo --></div>
+
+<!-- ── GRAFICO (legenda HTML custom + canvas) ── -->
+<div class="chart-wrap">
+  <div class="chart-title"><!-- FILL --></div>
+  <div class="chart-sub"><!-- FILL: fonte dati --></div>
+  <div class="legend">
+    <div class="leg-item"><span class="leg-sq" style="background:#2a78d6"></span><!-- FILL serie 1 --></div>
+    <div class="leg-item"><span class="leg-sq" style="background:#e34948"></span><!-- FILL serie 2 --></div>
+  </div>
+  <div class="chart-canvas-wrap"><canvas id="chart1"></canvas></div>
+</div>
+
+<!-- ── CARD STRUMENTI (modalità B) ── -->
+<div class="etf-grid">
+  <div class="etf-card">
+    <div class="etf-name"><!-- FILL nome --></div>
+    <div class="etf-role"><!-- FILL ruolo/ISIN --></div>
+    <div class="etf-row"><span>TER</span><span class="etf-val"><!-- FILL --></span></div>
+    <div class="etf-row"><span>AUM</span><span class="etf-val"><!-- FILL --></span></div>
+    <div class="etf-row"><span>Replica</span><span class="etf-val"><!-- FILL --></span></div>
+  </div>
+</div>
+
+<!-- ── TABELLA DI CONFRONTO (modalità B): evidenzia best/worst per riga ── -->
+<div class="cmp-table-wrap">
+  <table class="cmp">
+    <thead><tr><th>Criterio</th><th><!-- FILL strum.1 --></th><th><!-- FILL strum.2 --></th><th><!-- FILL benchmark --></th></tr></thead>
+    <tbody>
+      <tr><td class="metric">TER</td><td class="num best"><!-- FILL --></td><td class="num"><!-- FILL --></td><td class="num"><!-- FILL --></td></tr>
+      <tr><td class="metric">Sharpe 3Y</td><td class="num"><!-- FILL --></td><td class="num best"><!-- FILL --></td><td class="num"><!-- FILL --></td></tr>
+      <!-- ripeti per ogni criterio. Classi: .best (verde) / .worst (rosso) sulla cella migliore/peggiore di riga -->
+    </tbody>
+  </table>
+</div>
+
+<!-- ── BARRE (esposizione geografica/fattoriale) ── -->
+<div class="factor-row"><div class="factor-label"><!-- FILL --></div><div class="factor-track"><div class="factor-fill" style="width:60%;background:#2a78d6"><!-- FILL % --></div></div></div>
+
+<!-- ── BARRE TOP-10 HOLDINGS ── -->
+<div class="top10-bar"><div class="top10-label"><!-- FILL --></div><div class="top10-track"><div class="top10-fill" style="width:70%;background:var(--accent-blue-bg)"></div></div><div class="top10-val"><!-- FILL % --></div></div>
+
+<!-- ── SCENARI ── -->
+<div class="scenario-grid">
+  <div class="scen"><div class="scen-head"><span class="pill pill-blue">Base</span></div><div class="scen-body"><!-- FILL --></div></div>
+</div>
+
+<!-- ── CONCEPT + EXAMPLE (didattica) ── -->
+<div class="concept-box"><div class="concept-title"><!-- FILL --></div><div class="concept-body"><!-- FILL --></div></div>
+<div class="example-box"><div class="example-label">Esempio</div><div class="example-body"><!-- FILL: esempio numerico concreto --></div></div>
+
+<!-- ── IMPATTO SUL PORTAFOGLIO (modalità A) / VERDETTO (modalità B) ── -->
+<div class="conclusion-box">
+  <h3><!-- FILL: "Cosa significa per il tuo portafoglio" / "Verdetto" --></h3>
+  <ul class="conclusion-list">
+    <li><span class="c-arrow">→</span><!-- FILL takeaway azionabile --></li>
+  </ul>
+</div>
+
+<!-- ── CHECKLIST AZIONI (opzionale) ── -->
+<div class="section-label">Azioni</div>
+<ul class="action-list">
+  <li class="action-item"><span class="action-num">1</span><div><!-- FILL: importo €, strumento, scadenza --></div></li>
+</ul>
+
+<!-- ── FOOTER (sempre) ── -->
+<div class="footer-note"><!-- FILL: fonti citate, data, "dati da verificare live", nessun consiglio personalizzato se skill universale --></div>
+
+<!-- Per report multipli, separa le sezioni con:
+<div class="report-sep"><span class="report-sep-label">Report 2 — ...</span></div> -->
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   CHART.JS — costanti di stile coerenti col design system.
+   Legenda HTML custom sopra il canvas (Chart legend disattivata).
+   Colori serie: #2a78d6 blu · #e34948 rosso · #1baf7a verde ·
+   #eda100 ambra · #4a3aa7 viola · #1a1a1a nero (prezzo/linea madre).
+   ════════════════════════════════════════════════════════════════ */
+const gridC = '#E1E0D9', tickC = '#898781', tPri = '#0B0B0B';
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+  scales: { x: { grid: { color: gridC }, ticks: { color: tickC, font: { size: 11 } } },
+            y: { grid: { color: gridC }, ticks: { color: tickC, font: { size: 11 } } } }
+};
+
+/* ESEMPIO line (con doppio asse opzionale: aggiungi yAxisID + scales.yRight) */
+new Chart(document.getElementById('chart1'), {
+  type: 'line',
+  data: { labels: [/* FILL */], datasets: [
+    { label: 'Serie 1', data: [/* FILL */], borderColor: '#2a78d6', borderWidth: 2, pointRadius: 3, fill: false, tension: 0.3 },
+    { label: 'Serie 2', data: [/* FILL */], borderColor: '#e34948', borderWidth: 2, pointRadius: 3, fill: false, tension: 0.3 }
+  ]},
+  options: baseOpts
+});
+
+/* ESEMPIO bar (colore condizionale pos/neg):
+   backgroundColor: data.map(v => v >= 0 ? '#1baf7a' : '#e34948'), borderRadius: 4 */
+
+/* ESEMPIO Monte Carlo fan-chart (modalità B): p10/p50/p90 con banda riempita.
+   Calcola i percentili a parte (vedi skill Monte Carlo) e inseriscili qui.
+new Chart(document.getElementById('mcChart'), {
+  type: 'line',
+  data: { labels: anni, datasets: [
+    { label: 'p90', data: p90, borderColor: 'transparent', backgroundColor: 'rgba(42,120,214,0.10)', fill: '+1', pointRadius: 0, tension: 0.2 },
+    { label: 'p10', data: p10, borderColor: 'transparent', backgroundColor: 'rgba(42,120,214,0.10)', fill: false, pointRadius: 0, tension: 0.2 },
+    { label: 'Mediana (p50)', data: p50, borderColor: '#2a78d6', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2 }
+  ]},
+  options: baseOpts
+});
+*/
+</script>
+</body>
+</html>

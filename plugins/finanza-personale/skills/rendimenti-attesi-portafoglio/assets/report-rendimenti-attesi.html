@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rendimento atteso — [FILL: etichetta portafoglio]</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#FAF9F7; --surface:#FFF; --surface-alt:#F3F2EF;
+    --border:rgba(11,11,11,.10); --border-strong:rgba(11,11,11,.18);
+    --text-primary:#0B0B0B; --text-secondary:#52514E; --text-muted:#898781;
+    --accent-blue:#2A78D6; --accent-blue-bg:#E6F1FB; --accent-blue-border:#B5D4F4;
+    --accent-amber:#BA7517; --accent-amber-bg:#FAEEDA; --accent-amber-border:#FAC775;
+    --accent-red:#A32D2D; --accent-red-bg:#FCEBEB; --accent-red-border:#F7C1C1;
+    --accent-green:#3B6D11; --accent-green-bg:#EAF3DE; --accent-green-border:#C0DD97;
+    --accent-purple:#534AB7; --accent-purple-bg:#EEEDFE; --accent-purple-border:#CECBF6;
+    --radius-md:10px; --radius-lg:14px;
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  body{font-family:var(--font);background:var(--bg);color:var(--text-primary);font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  .page{max-width:840px;margin:0 auto;padding:3rem 2rem 5rem}
+  .kicker{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+  .article-headline{font-size:26px;font-weight:500;line-height:1.25;margin-bottom:6px}
+  .article-sub{font-size:14px;color:var(--text-secondary);margin-bottom:2.5rem}
+  .section-label{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin:2.8rem 0 10px}
+  h2{font-size:17px;font-weight:500;margin:2.5rem 0 .5rem}
+  h3{font-size:14px;font-weight:500;margin:1.5rem 0 .4rem}
+  p{font-size:14px;line-height:1.75;margin-bottom:1rem}
+  hr{border:none;border-top:.5px solid var(--border-strong);margin:2rem 0}
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:1.2rem 0}
+  .stat{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-md);padding:.9rem 1rem}
+  .stat-lbl{font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+  .stat-val{font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+  .stat-note{font-size:11px;color:var(--text-muted);margin-top:3px}
+  .box-accent,.box-warn,.box-danger,.box-success,.box-purple{padding:14px 16px;margin:1.2rem 0;font-size:13px;line-height:1.65;border-left:3px solid}
+  .box-accent{background:var(--accent-blue-bg);border-color:var(--accent-blue-border)} .box-accent strong{color:var(--accent-blue);font-weight:500}
+  .box-warn{background:var(--accent-amber-bg);border-color:var(--accent-amber-border)} .box-warn strong{color:var(--accent-amber);font-weight:500}
+  .box-danger{background:var(--accent-red-bg);border-color:var(--accent-red-border)} .box-danger strong{color:var(--accent-red);font-weight:500}
+  .box-success{background:var(--accent-green-bg);border-color:var(--accent-green-border)} .box-success strong{color:var(--accent-green);font-weight:500}
+  .box-purple{background:var(--accent-purple-bg);border-color:var(--accent-purple-border)} .box-purple strong{color:var(--accent-purple);font-weight:500}
+  .cmp-table-wrap{overflow-x:auto;margin:1.2rem 0;border:.5px solid var(--border-strong);border-radius:var(--radius-md)}
+  table.cmp{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--surface)}
+  table.cmp th,table.cmp td{padding:9px 12px;text-align:left;border-bottom:.5px solid var(--border)}
+  table.cmp thead th{background:var(--surface-alt);font-weight:500;color:var(--text-secondary);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  table.cmp tbody tr:last-child td{border-bottom:none}
+  table.cmp td.metric{color:var(--text-secondary);font-weight:500}
+  table.cmp .num{font-variant-numeric:tabular-nums;text-align:right}
+  table.cmp tr.highlight td{background:var(--accent-blue-bg);font-weight:500}
+  .pill{display:inline-block;font-size:11px;font-weight:500;padding:2px 9px;border-radius:99px;margin-right:4px}
+  .pill-blue{background:var(--accent-blue-bg);color:#0C447C}
+  .pill-green{background:var(--accent-green-bg);color:var(--accent-green)}
+  .pill-amber{background:var(--accent-amber-bg);color:var(--accent-amber)}
+  .pill-red{background:var(--accent-red-bg);color:var(--accent-red)}
+  .pill-gray{background:#F1EFE8;color:#444441}
+  .chart-wrap{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.25rem;margin:1.5rem 0}
+  .chart-title{font-size:14px;font-weight:500;margin-bottom:4px}
+  .chart-sub{font-size:12px;color:var(--text-secondary);margin-bottom:1rem}
+  .chart-canvas-wrap{position:relative;width:100%;height:300px}
+  .waterfall{margin:1rem 0}
+  .wf-row{display:flex;align-items:center;gap:10px;margin:7px 0}
+  .wf-lbl{font-size:13px;color:var(--text-secondary);width:190px;flex-shrink:0}
+  .wf-track{flex:1;background:var(--surface-alt);border-radius:4px;height:24px;overflow:hidden}
+  .wf-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:12px;font-weight:500;color:#fff;white-space:nowrap}
+  .assumptions{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;margin:1.5rem 0}
+  .assumptions h3{margin-top:0}
+  .assumptions dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:12.5px}
+  .assumptions dt{color:var(--text-secondary);font-weight:500}
+  .assumptions dd{color:var(--text-primary)}
+  .footer-note{font-size:11px;color:var(--text-muted);margin-top:2rem;border-top:.5px solid var(--border-strong);padding-top:1rem;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="kicker">Rendimento atteso · [FILL: etichetta] · <span id="asof"></span></div>
+<h1 class="article-headline">Quanto è ragionevole aspettarsi da questo portafoglio</h1>
+<p class="article-sub">Stima top-down dai flussi osservabili di oggi, confronto con le capital market assumptions delle grandi case e con due benchmark a pari peso. <strong>Non è una previsione.</strong></p>
+
+<!-- ══════════ 1. IL NUMERO ══════════ -->
+<h2>1 · Il numero</h2>
+<div class="stat-row" id="headline-stats"></div>
+
+<div class="box-accent"><strong>Come si legge.</strong> [FILL: 2-3 righe. Cosa significa il numero per questo investitore: che ritmo di accumulo implica, che aspettativa sostituisce. Ricorda che 6-7% nominale non è una delusione ma realismo, e che il 10%/anno dell'ultimo quindicennio incorporava un'espansione delle valutazioni difficilmente ripetibile.]</div>
+
+<!-- ══════════ 2. I QUATTRO STRATI ══════════ -->
+<h2>2 · Dal lordo al netto-netto</h2>
+<p>Ogni strato toglie qualcosa di reale. Il fisco è applicato <strong>alla realizzazione</strong>, non come prelievo annuo: il differimento vale, e vale di più su orizzonti lunghi.</p>
+<div class="waterfall" id="waterfall"></div>
+<div class="box-warn"><strong>Il bollo non è trascurabile.</strong> Lo 0,20% annuo è un'imposta patrimoniale sul controvalore: toglie 0,20 punti pieni di rendimento, non lo 0,20% del guadagno. Su una gamba obbligazionaria al 3% erode oltre il 6% del rendimento atteso.</div>
+
+<!-- ══════════ 3. COMPOSIZIONE ══════════ -->
+<h2>3 · Da dove viene il numero</h2>
+<div class="cmp-table-wrap"><table class="cmp" id="sleeves-table"></table></div>
+<p style="font-size:12px;color:var(--text-muted)">Azioni: <code>E[r] reale = dividend yield + crescita reale per azione</code>, con variazione delle valutazioni posta a zero. Obbligazioni: <code>E[r] nominale = yield to worst + roll-down − perdita attesa da credito ± carry di copertura</code>.</p>
+<div id="coverage-box"></div>
+
+<!-- ══════════ 4. CONFRONTO ══════════ -->
+<h2>4 · Confronto con i benchmark</h2>
+<div class="cmp-table-wrap"><table class="cmp" id="bench-table"></table></div>
+<div class="chart-wrap">
+  <div class="chart-title">Rendimento atteso netto-netto e capitale terminale</div>
+  <div class="chart-sub">Stesso set di assunzioni per portafoglio e benchmark · orizzonte <span id="horiz2"></span> anni</div>
+  <div class="chart-canvas-wrap"><canvas id="benchChart"></canvas></div>
+</div>
+<div class="box-purple"><strong>Il delta annuo da solo inganna.</strong> Va letto insieme al capitale terminale — e, sul benchmark USA, insieme alla concentrazione: l'S&amp;P 500 è un benchmark su un solo paese, con il dividend yield più basso fra i grandi mercati (quindi il rendimento implicito più basso) ma la dispersione di stime più alta. Un portafoglio globale che "perde" qualche decimo contro l'S&amp;P 500 non sta perdendo: sta comprando diversificazione geografica a un prezzo dichiarato.</div>
+
+<!-- ══════════ 5. TOP-DOWN vs BOTTOM-UP ══════════ -->
+<h2>5 · Controllo incrociato: cosa dicono le grandi case</h2>
+<div class="stat-row" id="bu-stats"></div>
+<div class="cmp-table-wrap"><table class="cmp" id="bu-table"></table></div>
+<div id="divergence-box"></div>
+<div class="box-warn"><strong>Il range è la misura onesta dell'incertezza.</strong> Le cinque case partono dagli stessi temi (AI, inflazione, concentrazione, valutazioni) e arrivano a prescrizioni opposte. Chi gestisce migliaia di miliardi non ha la palla di cristallo: gli outlook servono a capire gli scenari, non a ricevere istruzioni. [FILL: se le CMA non sono nella stessa valuta / orizzonte / convenzione geometrica del top-down, dirlo qui.]</div>
+
+<!-- ══════════ 6. SENSITIVITY ══════════ -->
+<h2>6 · Quanto regge il numero</h2>
+<p>La crescita degli utili è <strong>l'unica assunzione</strong> del modello. Se il risultato non regge a ±1 punto di crescita, non regge.</p>
+<div class="cmp-table-wrap"><table class="cmp" id="sens-table"></table></div>
+
+<!-- ══════════ 7. ASSUNZIONI ══════════ -->
+<h2>7 · Assunzioni dichiarate</h2>
+<div class="assumptions"><h3>Tutto quello su cui poggia il numero</h3><dl id="assumptions-dl"></dl></div>
+
+<!-- ══════════ 8. COSA FARNE ══════════ -->
+<h2>8 · Cosa farne</h2>
+<div class="box-success"><strong>1 · Tarare le aspettative.</strong> [FILL]</div>
+<div class="box-accent"><strong>2 · Guardare lo yield, non l'umore.</strong> Davanti a "i mercati saliranno / crolleranno", una sola domanda: da quale rendimento di partenza sto comprando? Il dividend yield e il rendimento a scadenza sono il faro; il resto è intrattenimento.</div>
+<div class="box-warn"><strong>3 · Se il numero non basta per l'obiettivo, l'ordine delle leve è vincolato.</strong> Prima il <strong>tasso di risparmio</strong>, poi l'<strong>orizzonte</strong>, poi il <strong>ridimensionamento dell'obiettivo</strong>. Solo in ultimo si rimette in discussione la tolleranza al rischio. <strong>Mai</strong> alzare l'azionario perché servono i soldi: quello è rischio comprato per necessità, non per tolleranza, ed è la via maestra all'abbandono del piano al primo drawdown.</div>
+<div class="box-danger"><strong>Questo numero non è un segnale operativo.</strong> Un rendimento atteso basso non giustifica uscire, sospendere il PAC o sovrappesare tatticamente. La correlazione fra rendimento di partenza e rendimento realizzato è circa 0,5 sulle azioni: significativa per pianificare, insufficiente per cronometrare. Sulle obbligazioni spiega circa il 90% del decennio successivo — ma "quasi deterministico" non vuol dire "certo".</div>
+
+<div class="footer-note">
+  Metodo: stima top-down del rendimento implicito nei prezzi correnti (Ilmanen, <em>Expected Returns</em>; Gordon; Fama), con variazione delle valutazioni posta a zero per convenzione esplicita, confrontata con le capital market assumptions pubblicate. Tutti i dati di mercato riportano data e fonte; quelli marcati "da verificare" vanno riconfermati su KID, prospetto o factsheet dell'emittente prima di qualsiasi decisione.
+  Materiale educativo e di ragionamento: non è consulenza finanziaria personalizzata ai sensi di legge né raccomandazione di investimento. Investire comporta il rischio di perdere capitale; i rendimenti passati non predicono quelli futuri; una stima di rendimento atteso non è una previsione né una garanzia.
+</div>
+
+</div>
+
+<script>
+/* ═══ INIETTARE QUI results.json PRODOTTO DA scripts/rendimenti_attesi.py ═══ */
+const R = {/* PLACEHOLDER — sostituire con il contenuto di results.json */};
+
+(function(){
+  if(!R || !R.portfolio) return;
+  const pc = v => (v===null||v===undefined) ? 'n/d' : (v*100).toFixed(2)+'%';
+  const pt = v => (v===null||v===undefined) ? 'n/d' : (v*100>=0?'+':'')+(v*100).toFixed(2)+' pt';
+  const el = id => document.getElementById(id);
+  const P = R.portfolio, L = P.layers, M = P.multiples;
+
+  el('asof').textContent = R.meta.as_of;
+  el('horiz2').textContent = R.meta.horizon_years;
+
+  /* 1 — headline */
+  el('headline-stats').innerHTML = `
+    <div class="stat"><div class="stat-lbl">Nominale lordo</div><div class="stat-val">${pc(L.nominal_gross)}</div><div class="stat-note">top-down, prima dei costi</div></div>
+    <div class="stat"><div class="stat-lbl">Netto costi</div><div class="stat-val">${pc(L.nominal_net_costs)}</div><div class="stat-note">TER ${pc(P.weighted_ter)} + bollo</div></div>
+    <div class="stat"><div class="stat-lbl">Netto-netto</div><div class="stat-val">${pc(P.headline_nominal)}</div><div class="stat-note">fisco alla realizzazione</div></div>
+    <div class="stat"><div class="stat-lbl">Reale netto-netto</div><div class="stat-val">${pc(L.real_net_tax !== null ? L.real_net_tax : L.real_net_costs)}</div><div class="stat-note">potere d'acquisto</div></div>
+    <div class="stat"><div class="stat-lbl">Montante ${R.meta.horizon_years}a</div><div class="stat-val">×${M.net_all_nominal.toFixed(2)}</div><div class="stat-note">reale ×${M.net_all_real.toFixed(2)}</div></div>`;
+
+  /* 2 — waterfall */
+  const steps = [
+    ['Reale lordo', L.real_gross, '#534AB7'],
+    ['Nominale lordo', L.nominal_gross, '#2A78D6'],
+    ['Netto costi (TER+bollo)', L.nominal_net_costs, '#3B6D11'],
+    ['Netto fisco (al termine)', P.headline_nominal, '#BA7517'],
+    ['Reale netto-netto', L.real_net_tax !== null ? L.real_net_tax : L.real_net_costs, '#898781']
+  ];
+  const mx = Math.max(...steps.map(s=>s[1]||0)) || 1;
+  el('waterfall').innerHTML = steps.map(([lbl,v,c])=>`
+    <div class="wf-row"><div class="wf-lbl">${lbl}</div><div class="wf-track">
+      <div class="wf-fill" style="width:${Math.max(6,(v||0)/mx*100)}%;background:${c}">${pc(v)}</div>
+    </div></div>`).join('');
+
+  /* 3 — sleeves */
+  const rows = P.sleeves.map(s=>{
+    if(s.kind==='non_computable') return `<tr><td class="metric">${s.name}</td><td>${(s.weight*100).toFixed(1)}%</td><td colspan="3"><span class="pill pill-gray">non stimabile</span> nessun flusso di cassa da scontare</td></tr>`;
+    const c = s.components, det = s.kind==='equity'
+      ? `DY ${pc(c.dividend_yield)} + g ${pc(c.real_growth)}${c.valuation_change?` + ΔV ${pc(c.valuation_change)}`:' (ΔV = 0)'}`
+      : `YTW ${pc(c.ytw)}${c.roll_down?` + roll ${pc(c.roll_down)}`:''}${c.credit_loss?` − credito ${pc(c.credit_loss)}`:''}${c.hedging_carry?` ± hedge ${pc(c.hedging_carry)}`:''}${c.duration?` · dur ${c.duration}a`:''}`;
+    return `<tr><td class="metric">${s.name}</td><td>${(s.weight*100).toFixed(1)}%</td><td>${det}</td><td class="num">${pc(s.real_gross)}</td><td class="num">${pc(s.nominal_gross)}</td></tr>`;
+  }).join('');
+  el('sleeves-table').innerHTML = `<thead><tr><th>Gamba</th><th>Peso</th><th>Composizione</th><th class="num">Reale</th><th class="num">Nominale</th></tr></thead><tbody>${rows}
+    <tr class="highlight"><td class="metric">Portafoglio (su quota coperta)</td><td>${(P.coverage*100).toFixed(0)}%</td><td>media pesata${P.geometric_refinement?` · vol ${pc(P.geometric_refinement.portfolio_volatility)}`:''}</td><td class="num">${pc(L.real_gross)}</td><td class="num">${pc(L.nominal_gross)}</td></tr></tbody>`;
+
+  el('coverage-box').innerHTML = P.coverage < 0.999
+    ? `<div class="box-warn"><strong>Copertura ${(P.coverage*100).toFixed(0)}%.</strong> Il ${((1-P.coverage)*100).toFixed(0)}% del portafoglio non è stimabile con questo metodo: oro, materie prime e strategie alternative non pagano flussi di cassa, quindi non hanno un rendimento implicito osservabile. La stima vale sulla quota coperta e i pesi sono stati rinormalizzati. Sul residuo si può al più ragionare per scenari, mai per stima puntuale.</div>`
+    : `<div class="box-success"><strong>Copertura 100%.</strong> Ogni gamba paga flussi di cassa: la stima copre l'intero portafoglio.</div>`;
+
+  if(P.geometric_refinement){
+    el('coverage-box').innerHTML += `<div class="box-accent"><strong>Bonus di ribilanciamento: ${pt(P.geometric_refinement.rebalancing_bonus)}.</strong> La media pesata di rendimenti composti sottostima leggermente un portafoglio ribilanciato fra asset imperfettamente correlati. Correzione di second'ordine (geometrico ${pc(P.geometric_refinement.nominal_gross_geometric)}): l'headline resta la media pesata semplice, riproducibile a mano. Per la distribuzione completa serve la simulazione Monte Carlo.</div>`;
+  }
+
+  /* 4 — benchmark */
+  const brows = [`<tr class="highlight"><td class="metric">Portafoglio proposto</td><td class="num">${pc(L.nominal_gross)}</td><td class="num">${pc(P.headline_nominal)}</td><td class="num">×${M.net_all_nominal.toFixed(2)}</td><td class="num">—</td><td class="num">—</td></tr>`];
+  R.benchmarks.forEach((b,i)=>{
+    const c = R.comparisons[i];
+    const cls = c.delta_annual >= 0 ? 'pill-green' : 'pill-amber';
+    brows.push(`<tr><td class="metric">${b.name}</td><td class="num">${pc(b.layers.nominal_gross)}</td><td class="num">${pc(b.headline_nominal)}</td><td class="num">×${b.multiples.net_all_nominal.toFixed(2)}</td><td class="num"><span class="pill ${cls}">${pt(c.delta_annual)}</span></td><td class="num">${(c.delta_terminal_wealth*100>=0?'+':'')}${(c.delta_terminal_wealth*100).toFixed(1)}%</td></tr>`);
+  });
+  el('bench-table').innerHTML = `<thead><tr><th></th><th class="num">Lordo</th><th class="num">Netto-netto</th><th class="num">Montante ${R.meta.horizon_years}a</th><th class="num">Δ annuo</th><th class="num">Δ montante</th></tr></thead><tbody>${brows.join('')}</tbody>`;
+
+  new Chart(el('benchChart'),{type:'bar',
+    data:{labels:['Portafoglio', ...R.benchmarks.map(b=>b.name.split('—')[0].trim())],
+      datasets:[
+        {label:'Netto-netto annuo (%)',data:[P.headline_nominal*100,...R.benchmarks.map(b=>b.headline_nominal*100)],backgroundColor:['#2A78D6','#3B6D11','#BA7517'],yAxisID:'y',borderRadius:4},
+        {label:'Montante (×)',data:[M.net_all_nominal,...R.benchmarks.map(b=>b.multiples.net_all_nominal)],type:'line',borderColor:'#534AB7',backgroundColor:'#534AB7',yAxisID:'y1',pointRadius:5,borderWidth:2}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},color:'#52514E'}}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#898781',font:{size:11}}},
+        y:{position:'left',grid:{color:'#E1E0D9'},ticks:{color:'#898781',font:{size:11},callback:v=>v.toFixed(1)+'%'},title:{display:true,text:'Rendimento annuo',color:'#898781',font:{size:11}}},
+        y1:{position:'right',grid:{display:false},ticks:{color:'#534AB7',font:{size:11},callback:v=>'×'+v.toFixed(1)},title:{display:true,text:'Montante',color:'#534AB7',font:{size:11}}}
+      }}});
+
+  /* 5 — bottom-up */
+  if(R.bottom_up){
+    const B = R.bottom_up, D = R.divergence_top_vs_bottom;
+    el('bu-stats').innerHTML = `
+      <div class="stat"><div class="stat-lbl">Top-down (lordo)</div><div class="stat-val">${pc(L.nominal_gross)}</div><div class="stat-note">metodo primario</div></div>
+      <div class="stat"><div class="stat-lbl">Bottom-up (media)</div><div class="stat-val">${pc(B.mean)}</div><div class="stat-note">5 case, ricomposto sui pesi</div></div>
+      <div class="stat"><div class="stat-lbl">Range bottom-up</div><div class="stat-val">${pc(B.min)}–${pc(B.max)}</div><div class="stat-note">misura dell'incertezza</div></div>
+      <div class="stat"><div class="stat-lbl">Divergenza</div><div class="stat-val">${pt(D.gap)}</div><div class="stat-note">${D.classification.split('—')[0]}</div></div>`;
+    el('bu-table').innerHTML = `<thead><tr><th>Gamba</th><th class="num">Peso</th><th class="num">Media CMA</th><th class="num">Min</th><th class="num">Max</th><th class="num">Dispersione</th></tr></thead><tbody>${
+      B.rows.map(r=>`<tr><td class="metric">${r.sleeve}</td><td class="num">${(r.weight_renorm*100).toFixed(1)}%</td><td class="num">${pc(r.mean)}</td><td class="num">${pc(r.min)}</td><td class="num">${pc(r.max)}</td><td class="num">${(r.dispersion*100).toFixed(1)} pt</td></tr>`).join('')}</tbody>`;
+    const anomaly = D.classification.startsWith('ANOMALIA');
+    el('divergence-box').innerHTML = anomaly
+      ? `<div class="box-danger"><strong>Divergenza anomala: ${pt(D.gap)}.</strong> Oltre 1,5 punti. Non si media in silenzio: o le case stanno prezzando qualcosa che il top-down non vede (una revisione degli utili, un'espansione dei multipli, un'assunzione di cambio), oppure il confronto è viziato da valuta, orizzonte o convenzione geometrica diversi. [FILL: quale delle due, e perché.]</div>`
+      : `<div class="box-success"><strong>Convergenza (${pt(D.gap)}).</strong> Due metodi indipendenti — uno che parte dai prezzi osservabili senza opinioni macro, uno che parte da scenari e analisi — arrivano allo stesso ordine di grandezza. È la validazione incrociata che rende utilizzabile la stima top-down.</div>`;
+  }
+
+  /* 6 — sensitivity */
+  if(R.sensitivity){
+    const lbl = {growth:'Crescita reale degli utili', inflation:'Inflazione attesa'};
+    el('sens-table').innerHTML = `<thead><tr><th>Variabile</th><th class="num">Scenario basso</th><th class="num">Caso base</th><th class="num">Scenario alto</th><th class="num">Ampiezza</th></tr></thead><tbody>${
+      Object.entries(R.sensitivity).map(([k,v])=>`<tr><td class="metric">${lbl[k]||k} (±${(v.delta*100).toFixed(1)} pt)</td><td class="num">${pc(v.down)}</td><td class="num">${pc(P.headline_nominal)}</td><td class="num">${pc(v.up)}</td><td class="num">${((v.up-v.down)*100).toFixed(2)} pt</td></tr>`).join('')}</tbody>`;
+  }
+
+  /* 7 — assunzioni */
+  const A = R.assumptions;
+  const dl = [
+    ['Data dei dati', R.meta.as_of],
+    ['Valuta base', R.meta.base_currency],
+    ['Orizzonte', R.meta.horizon_years + ' anni'],
+    ['Convenzione', R.meta.convention === 'per-share' ? 'per-azione (la crescita incorpora già i buyback netti — nessun net buyback yield aggiunto)' : R.meta.convention],
+    ['Variazione valutazioni', 'posta a ZERO per convenzione esplicita'],
+    ['Inflazione attesa', pc(A.inflation.value) + ' — ' + (A.inflation.source||'fonte da dichiarare')],
+    ['Imposta patrimoniale', pc(A.costs.bollo||0) + '/anno (bollo / IVAFE)'],
+    ['Fiscalità', A.tax && A.tax.apply ? `aliquota ponderata ${pc(P.weighted_tax_rate)}, applicata alla realizzazione (non come drag annuo)` : 'non applicata'],
+    ['Copertura della stima', (P.coverage*100).toFixed(0) + '% del portafoglio'],
+    ...P.sleeves.filter(s=>s.source).map(s=>['Fonte · '+s.name, s.source])
+  ];
+  el('assumptions-dl').innerHTML = dl.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+})();
+</script>
+</body>
+</html>
