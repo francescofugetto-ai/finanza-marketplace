@@ -21,6 +21,14 @@ Il metodo delle grandi case: partire da aziende, settori e scenari macro per arr
 
 Set canonico usato in `[TB-339]`, da aggiornare a ogni pubblicazione:
 
+> **Il numero di case non è un dettaglio di completezza: è ciò che rende il bottom-up un
+> intervallo.** Con una sola casa non c'è né minimo né massimo, quindi non c'è l'intervallo
+> osservato che `metodo-fiduciario` §7 punto 2 prescrive: c'è un secondo numero puntuale, che
+> serve a poco. Se per qualunque ragione ne usi meno di una, dichiaralo in chiaro, non derivarne
+> gli scenari prudente e ottimista, e metti le case mancanti fra le lacune residue del report.
+> La formula esatta da usare è nel §Guardrail della `SKILL.md`, voce «Una casa non è un
+> intervallo».
+
 | Casa | Pubblicazione | Cadenza tipica |
 |---|---|---|
 | **BlackRock** (Investment Institute) | Capital Market Assumptions | continua/trimestrale |

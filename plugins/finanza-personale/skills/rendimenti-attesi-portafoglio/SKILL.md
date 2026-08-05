@@ -29,7 +29,7 @@ Non si attiva per: valutare un singolo ETF contro i competitor (→ `analisi-doc
 1. **Raccogli i pesi** del portafoglio e classifica ogni gamba in tre categorie: `equity`, `bond`, `non_computable`. Se il portafoglio non è ancora definito, fermati: questa skill misura, non alloca.
 2. **Raccogli i dati di input** seguendo `references/fonti-dati.md` — che dice *esattamente* dove si prende ogni numero e in che ordine di priorità. **Prima cerca live**, poi chiedi. Se un dato non è verificabile: `n/d` esplicito, mai un numero plausibile.
 3. **Calcola il top-down** con `references/metodologia-top-down.md`. Non fare i conti a mano: `python3 scripts/rendimenti_attesi.py config.json results.json`.
-4. **Calcola il bottom-up** con `references/metodologia-bottom-up.md` (CMA correnti ricomposte sugli stessi pesi) e **misura la dispersione** fra le case.
+4. **Calcola il bottom-up** con `references/metodologia-bottom-up.md` (CMA correnti ricomposte sugli stessi pesi) e **misura la dispersione** fra le case. Il bottom-up serve a produrre un **intervallo osservato**, non un secondo numero puntuale: vale la regola del §Guardrail «una casa non è un intervallo».
 5. **Costruisci i benchmark** a pari peso con `references/benchmark-e-confronto.md` e calcolali con lo **stesso identico set di assunzioni** (stessa data, stessa `g`, stessa inflazione, stessa fiscalità).
 6. **Genera il report** partendo da `assets/report-rendimenti-attesi.html`, iniettando `results.json`.
 7. **Auto-verifica** con la checklist in fondo a questo file, poi salva nella **cartella di output dell'ambiente** (vedi `metodo-fiduciario` §10) e condividi il file.
@@ -51,6 +51,11 @@ Ogni numero va dato in **quattro strati**: lordo reale → lordo nominale → ne
 
 - **Non è una previsione.** È l'ordine di grandezza implicito nei prezzi di oggi, con la variazione delle valutazioni posta a zero *per convenzione dichiarata*. Correlazione storica con il realizzato ~0,5 sulle azioni, ~90% di varianza spiegata sui bond. **Sufficiente per pianificare, insufficiente per il market timing** — e va detto in ogni report.
 - **Non innesca mosse tattiche.** Un rendimento atteso basso non è un segnale di uscita, di sospensione del PAC o di sovrappeso. Se la stima spinge verso una mossa, nominala come tentazione e riconducila alla regola (`analisi-macro.md` §regola d'oro). Se emerge uno shortfall si applica la gerarchia del conflitto **C-L**: **risparmio → orizzonte → obiettivo → *solo in ultimo* γ**. Mai "più azioni perché servono i soldi".
+- **Una casa non è un intervallo.** Il bottom-up esiste per una ragione sola: dare la **misura onesta dell'incertezza**, cioè un intervallo **osservato** fra case che partono da ipotesi diverse. Il set canonico è quello delle **cinque case** di `references/metodologia-bottom-up.md` §2. Con una sola casa non esistono né un minimo né un massimo: esiste un secondo numero puntuale, che è un'altra cosa.
+  - Con **tutte e cinque** (o comunque più di una): scenario prudente = **minimo** delle CMA ricomposte, ottimista = **massimo**. È l'intervallo osservato di `metodo-fiduciario` §7 punto 2.
+  - Con **una sola**: **non chiamarlo intervallo, non chiamarlo range, non derivarne gli scenari prudente e ottimista.** Presentalo come *confronto con una singola fonte*, nomina la casa, e scrivi in chiaro nel report questa frase o una equivalente: **«Cross-check con una sola casa (<nome>): non è un intervallo osservato. Gli scenari prudente e ottimista qui sotto vengono dalla sensitivity su `g` e su π, non dalla dispersione fra case.»**
+  - Se una casa non è raggiungibile o il dato è troppo vecchio, **dillo e vai avanti con quelle che hai**: una lacuna dichiarata vale più di un intervallo costruito su una fonte sola. Ma la lacuna va **nella riga delle lacune residue**, non solo in una nota di passaggio.
+  - **Mai** riempire le case mancanti con numeri plausibili, ricordati o interpolati. Vale il guardrail «mai inventare un input».
 - **Oro, commodities, managed futures, cripto: fuori dal calcolo.** Nessun flusso da scontare ⇒ nessuna stima top-down possibile (principio 12 del canone). Si **rinormalizza** sui pesi computabili e si dichiara sempre la **% di copertura**. Sul residuo, al massimo una banda di scenario, mai un punto.
 - **Mai inventare un input.** DY, YTW, duration, TER, quota governativa white-list: si verificano live sulla fonte primaria e si riporta **data del dato**. Meglio `n/d` che un numero plausibile.
 - **Una sola convenzione per volta** — per-azione *oppure* aggregata (mai `DY + NBY + g_per_azione`: doppio conteggio); geometrica *oppure* aritmetica; una sola valuta base.
@@ -83,6 +88,8 @@ Ogni numero va dato in **quattro strati**: lordo reale → lordo nominale → ne
 5. I **quattro strati** ci sono (lordo reale, lordo nominale, netto costi, netto fisco)?
 6. Il delta è espresso **anche in capitale terminale**, non solo in punti annui?
 7. La **divergenza top-down/bottom-up** è quantificata e — se > ~1,5 pt — spiegata, non mediata?
+7-bis. **Quante case CMA hai usato davvero?** Se **una sola**, il report la nomina, dichiara che *non è un intervallo osservato* e non ne deriva gli scenari prudente e ottimista?
+7-ter. Le case **mancanti o non raggiungibili** sono elencate fra le **lacune residue**, e non c'è nessun numero riempito a memoria al loro posto?
 8. C'è la **sensitivity su `g`** (±1 pt) e su π?
 9. Il report dice esplicitamente che **non è una previsione** e che **non giustifica market timing**?
 10. Nessuna riga suggerisce di alzare l'azionario per raggiungere un obiettivo (violazione di **C-L**)?

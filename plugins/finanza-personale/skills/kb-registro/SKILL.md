@@ -24,6 +24,37 @@ KB_ROOT/                      ← repo dati, separato dal plugin
 - **Un comando solo per rigenerarle tutte:** `python3 scripts/kb.py viste` scrive la vista globale e una per ogni soggetto con mandato. La disciplina che dipende dal ricordarsi due comandi diversi non regge tre mesi.
 - **Gli HTML non si leggono mai per intero all'apertura.** Si apre un report solo quando un record del registro lo indica come rilevante e serve il dettaglio.
 
+### Dov'è `KB_ROOT`, e cosa fare quando non c'è
+
+**`KB_ROOT` non si indovina mai.** È il difetto silenzioso di questa skill: un percorso
+plausibile ma sbagliato produce un messaggio d'errore credibile — «non ho potuto scrivere» — che
+nasconde il fatto che non si stava nemmeno guardando nel posto giusto. L'utente conclude che il
+registro è irraggiungibile, quando magari era solo altrove.
+
+**Ordine di ricerca, in questo ordine e senza saltare passaggi:**
+
+1. La **variabile d'ambiente `KB_ROOT`**, se impostata.
+2. Il **percorso passato esplicitamente** con `--kb <percorso>`.
+3. Una cartella che contenga davvero un `ledger.jsonl`, **verificata** — non ipotizzata.
+
+**Se nessuno dei tre dà un risultato, sei senza filesystem o senza registro.** È la condizione
+normale in chat, sull'app e da telefono, e non è un guasto. In quel caso:
+
+- **Non nominare nessun percorso.** Nessun `/tmp/…`, nessun `~/…`, nessuna cartella «di solito
+  sta qui». Un percorso citato che l'utente non riconosce fa perdere tempo a entrambi e sposta
+  la conversazione sul posto sbagliato.
+- **Dillo con questa formula, o una equivalente**: *«In questa sessione non ho accesso in
+  scrittura al registro. Ti passo il record già pronto: salvalo come `record.json` nella
+  cartella del sistema, poi `kb.cmd add --file record.json` e doppio clic su
+  `AGGIORNA-VISTE.cmd`.»*
+- **Consegna il record**, completo e valido, dentro la risposta. Un record che resta nella testa
+  di una sessione è un record perso: la sessione finisce, il registro no.
+- **Non è un fallimento della consegna**: il documento è stato prodotto, la registrazione è
+  rimandata di un passaggio manuale. Va detto una volta, in chiusura, senza scusarsi tre volte.
+
+**In lettura vale la simmetrica**: se la vista non è fra i documenti di progetto, **chiedila e
+fermati** — vedi §Quando si legge. L'assenza del file non è assenza di vincoli.
+
 Schema completo dei campi: `references/SCHEMA.md`.
 
 ## Due livelli, mai da mescolare — `layer`
@@ -57,6 +88,8 @@ python3 scripts/kb.py add --file record.json
 ```
 
 Regole di scrittura, non negoziabili:
+
+- **Se non puoi scrivere, non fingere di sapere dove.** Niente percorsi ipotizzati: si applica la procedura del §«Dov'è `KB_ROOT`, e cosa fare quando non c'è» — si dichiara la modalità degradata e **si consegna il record nella risposta**.
 
 - **Si registra il record, non il contenuto.** Un forecast deperibile entra come *titolo + verdetto + scadenza*, mai come tesi archiviata. Ciò che è `time-sensitive` **deve** avere `scade`.
 - **Un verdetto AZIONE genera sempre almeno un `vincolo` o un `trigger`** con data. Se non riesci a scriverlo con soglia e data, non era un'azione: era un'opinione.

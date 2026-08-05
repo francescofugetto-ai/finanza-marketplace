@@ -1,5 +1,57 @@
 # Changelog — finanza-personale
 
+## 2026-08-05 — due difetti emersi dalle prove sul campo
+
+Nessuno dei due era un guasto: erano due modi in cui il sistema poteva dare una
+risposta credibile ma sbagliata, in silenzio. Corretti entrambi.
+
+**«Una casa non e' un intervallo»**
+
+Alla prova del rendimento atteso, il cross-check bottom-up e' stato fatto con
+**una sola casa CMA** invece delle cinque canoniche. La risposta lo ha
+dichiarato — comportamento corretto — ma il risultato restava incompleto: con
+una sola casa non esistono un minimo e un massimo, quindi non esiste l'intervallo
+osservato che `metodo-fiduciario` §7 punto 2 prescrive. Esiste un secondo numero
+puntuale, che e' un'altra cosa e vale molto meno.
+
+La regola c'era gia': non era imperativa abbastanza nel punto in cui si esegue.
+
+- `rendimenti-attesi-portafoglio/SKILL.md`: nuovo guardrail **«Una casa non e' un
+  intervallo»**, con la formula esatta da scrivere nel report quando si usa una
+  sola fonte, e il divieto di derivarne gli scenari prudente e ottimista. Due
+  voci nuove nell'auto-verifica (7-bis, 7-ter).
+- `references/metodologia-bottom-up.md` §2: riquadro che spiega perche' il numero
+  di case non e' un dettaglio di completezza.
+- `metodo-fiduciario` §7 punto 2: rimando alla regola operativa.
+
+Nessuna soglia inventata, nessuna regola nuova: e' la definizione esistente di
+«intervallo osservato», resa impossibile da saltare in silenzio.
+
+**Il registro non si cerca a indovinare**
+
+Sempre alla prova sul campo, non riuscendo a scrivere il record, la risposta ha
+nominato un percorso (`/tmp/ciclo`) che non c'entrava niente con il registro
+dell'utente. Il comportamento di fondo era corretto — modalita' degradata
+dichiarata, record offerto — ma il percorso citato manda la conversazione nel
+posto sbagliato.
+
+Causa: `kb.py` ripiegava su `os.getcwd()` quando nessuno diceva dove fosse il
+registro, quindi «il registro» diventava qualunque cartella capitasse.
+
+- `kb.py`: `kb_root()` ora **verifica** che la cartella contenga davvero
+  `ledger.jsonl`. Se non c'e', si ferma con uscita **2** e spiega i tre modi per
+  indicare il percorso, piu' cosa fare quando non c'e' filesystem. `init` resta
+  esentato, perche' la struttura la crea lui.
+- `kb-registro/SKILL.md`: nuova sezione **«Dov'e' KB_ROOT, e cosa fare quando non
+  c'e'»** — ordine di ricerca, divieto di nominare percorsi non verificati,
+  formula esatta da usare in modalita' degradata, obbligo di consegnare il record
+  nella risposta. Piu' una regola non negoziabile in §Quando si scrive.
+
+Verificato: i sei comandi funzionano invariati sul registro reale, `init` crea la
+struttura in una cartella nuova, e una `KB_ROOT` sbagliata ora si ferma invece di
+inventare.
+
+
 ## 2026-08-04 — ricostruzione del sistema in versione unica
 
 Il sistema era disperso fra cinque copie, con due file danneggiati e i due

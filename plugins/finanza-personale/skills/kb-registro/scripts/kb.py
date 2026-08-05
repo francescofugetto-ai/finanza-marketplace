@@ -54,9 +54,40 @@ STATI = ("vigente", "superato", "scaduto", "archiviato")
 
 # ---------------------------------------------------------------- utilities
 
-def kb_root(args):
-    root = getattr(args, "kb", None) or os.environ.get("KB_ROOT") or os.getcwd()
-    return os.path.abspath(root)
+def kb_root(args, deve_esistere=True):
+    """Dove sta il registro. In ordine: --kb, poi $KB_ROOT, poi la cartella corrente.
+
+    La cartella corrente e' un ripiego, non una risposta: se non contiene un
+    `ledger.jsonl`, quasi sempre significa che nessuno ha detto dove sta il
+    registro, e proseguire produrrebbe un errore credibile ma fuorviante — o,
+    peggio, un registro nuovo e vuoto in un posto a caso. Meglio fermarsi e
+    dire come si indica il percorso.
+    """
+    esplicito = getattr(args, "kb", None) or os.environ.get("KB_ROOT")
+    root = os.path.abspath(esplicito or os.getcwd())
+    if not deve_esistere:
+        return root
+    if os.path.isfile(os.path.join(root, LEDGER)):
+        return root
+
+    origine = ("indicata con --kb" if getattr(args, "kb", None)
+               else "letta da $KB_ROOT" if os.environ.get("KB_ROOT")
+               else "la cartella corrente (nessuno ha detto dove sta il registro)")
+    sys.stderr.write(
+        f"\nerrore: non trovo il registro.\n"
+        f"       cercato in: {root}\n"
+        f"       ({origine})\n\n"
+        f"       Il registro e' la cartella che contiene `{LEDGER}`.\n"
+        f"       Indicala in uno di questi tre modi:\n"
+        f"         1.  kb.py --kb <percorso> <comando>\n"
+        f"         2.  imposta la variabile d'ambiente KB_ROOT\n"
+        f"         3.  lancia il comando dalla cartella del registro\n\n"
+        f"       Su Windows non serve niente di tutto questo: usa `kb.cmd`,\n"
+        f"       che calcola il percorso da solo.\n\n"
+        f"       Se stai lavorando senza filesystem (chat, app, telefono), non\n"
+        f"       cercare un percorso: consegna il record nella risposta e fallo\n"
+        f"       registrare a mano. Vedi SKILL.md, sezione «Dov'e' KB_ROOT».\n\n")
+    raise SystemExit(2)
 
 
 def parse_date(s, field):
@@ -300,7 +331,7 @@ def isin_ben_formato(v):
 # ---------------------------------------------------------------- commands
 
 def cmd_init(args):
-    root = kb_root(args)
+    root = kb_root(args, deve_esistere=False)   # init crea la struttura: qui il registro non c'e' ancora
     for d in ("reports",):
         os.makedirs(os.path.join(root, d), exist_ok=True)
     path = os.path.join(root, LEDGER)
