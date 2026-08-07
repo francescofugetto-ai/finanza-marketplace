@@ -761,6 +761,46 @@ def cmd_viste(args):
         print("corrisponde al progetto che hai aperto, hai caricato il file sbagliato.")
 
 
+def cmd_soggetti(args):
+    """Elenca i soggetti presenti nel registro.
+
+    Toglie di mezzo un errore che non dovrebbe esistere: dover ricordare come
+    e' scritto il soggetto dentro i record. In un registro dedicato a un solo
+    mandato — per esempio la cartella di un cliente — il soggetto e' uno solo,
+    e il programma se lo puo' leggere da solo invece di farselo dire.
+
+    Con --uno stampa il soggetto e basta, ma solo se ce n'e' esattamente uno.
+    """
+    root = kb_root(args)
+    recs = load(root)
+    sogg = sorted({r.get("soggetto") for r in recs
+                   if r.get("layer") == "mandato"
+                   and r.get("soggetto") and r.get("soggetto") != "-"})
+
+    if getattr(args, "uno", False):
+        if len(sogg) == 1:
+            print(sogg[0])
+            return
+        if not sogg:
+            sys.stderr.write(
+                "\nerrore: in questo registro non c'e' nessun record di livello 'mandato'.\n"
+                "       finche' non ne aggiungi uno non c'e' una vista da generare.\n\n")
+        else:
+            sys.stderr.write(
+                f"\nerrore: mi serviva un soggetto solo, ne ho trovati {len(sogg)}.\n"
+                "       soggetti presenti: " + ", ".join(sogg) + "\n"
+                "       indica quale vuoi con --soggetto.\n\n")
+        raise SystemExit(2)
+
+    if not sogg:
+        print("nessun soggetto di livello 'mandato' in questo registro.")
+        return
+    print(f"{len(sogg)} soggetti in {root}:")
+    for s in sogg:
+        n = sum(1 for r in recs if r.get("soggetto") == s)
+        print(f"  {s}   ({n} record)   vista: {nome_vista(s)}")
+
+
 def cmd_grafo(args):
     root = kb_root(args)
     recs = load(root)
@@ -845,6 +885,11 @@ def main():
     gr = sub.add_parser("grafo")
     gr.add_argument("--out")
     gr.set_defaults(fn=cmd_grafo)
+
+    so = sub.add_parser("soggetti", help="elenca i soggetti presenti nel registro")
+    so.add_argument("--uno", action="store_true",
+                    help="stampa il solo soggetto, se ce n'e' esattamente uno")
+    so.set_defaults(fn=cmd_soggetti)
 
     args = p.parse_args()
     args.fn(args)
