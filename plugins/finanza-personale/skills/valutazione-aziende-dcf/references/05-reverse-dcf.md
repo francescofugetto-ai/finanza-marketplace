@@ -324,6 +324,34 @@ la funzione non cambia segno restituisce `None` con la ragione scritta a parole,
 e quella ragione **è** il risultato da riportare. Vale la regola generale della
 skill: un buco dichiarato vale più di un numero plausibile.
 
+### Il terzo modo di non avere risposta: due valori invece di uno
+
+Oltre a «la soluzione è fuori dai limiti», esiste un caso in cui la soluzione è
+**dentro** i limiti e ce n'è più d'una. Il motore lo riconosce e restituisce
+`None` con il motivo *«esistono più valori compatibili con questo prezzo»*, invece
+di scegliere una radice e presentarla come la risposta.
+
+**Perché succede, ed è un fatto economico non un'anomalia numerica.** Il
+reinvestimento necessario a sostenere la crescita si ricava da `sales_to_capital`:
+più basso è, più capitale serve per ogni euro di ricavo in più. Il ritorno
+marginale di quel capitale è circa `margine × (1 − aliquota) × sales_to_capital`.
+Finché resta **sopra il costo del capitale**, crescere crea valore e il fair value
+sale con la crescita. Quando scende **sotto**, crescere lo distrugge: il fair value
+comincia a scendere. Nel mezzo c'è un **massimo interno**, e lì la stessa
+valutazione è compatibile con due percorsi di crescita diversi — uno prima del
+massimo e uno dopo.
+
+Sul caso di riferimento (margine finale 33%, aliquota 27%, WACC 10%) succede
+attorno a `sales_to_capital` **0,32**, dove il ritorno marginale vale circa il
+7,7% contro un costo del capitale del 10%. **Non è una configurazione esotica:**
+0,32 significa poco più di tre euro di capitale per ogni euro di ricavo
+incrementale, cioè una utility regolata, una telco, una fonderia.
+
+Chi legge il report deve saperlo riconoscere: se il risolutore dice che ci sono
+due valori compatibili, il messaggio non è «il modello non funziona» ma **«questa
+azienda è vicina al punto in cui crescere smette di creare valore»**, che è
+un'informazione sull'azienda più importante del numero che si stava cercando.
+
 ---
 
 ## 7 · Che cosa il reverse DCF non dice

@@ -568,6 +568,14 @@ def _bisezione(f, lo: float, hi: float, etichetta: str) -> ReverseResult:
     limiti di plausibilita': si restituisce None con la ragione. Non si allarga
     l'intervallo, perche' il limite non e' un dettaglio tecnico della bisezione —
     e' l'affermazione che oltre quel valore l'ipotesi non e' piu' credibile.
+
+    **Prima di bisecare si controlla che la funzione sia monotona**, confrontando
+    il verso della pendenza ai due estremi. La bisezione presuppone la monotonia:
+    su una funzione con un massimo interno trova una radice e non vede l'altra, e
+    pubblicherebbe *«il prezzo sta scontando il X%»* mentre i valori compatibili
+    sono due. Peggio: con un massimo interno i due estremi possono stare **dalla
+    stessa parte** del prezzo mentre in mezzo ci sono due soluzioni, e la risposta
+    «nessuna soluzione» sarebbe falsa.
     """
     if hi <= lo:
         return ReverseResult(
@@ -584,6 +592,27 @@ def _bisezione(f, lo: float, hi: float, etichetta: str) -> ReverseResult:
 
     if f_lo is None or f_hi is None:
         return ReverseResult(None, f"{etichetta}: manca il prezzo di mercato, non c'e' niente da azzerare")
+
+    # Monotonia: il verso della pendenza ai due estremi deve essere lo stesso.
+    # Intercetta il massimo (o minimo) interno, che e' il caso economicamente
+    # significativo — non ogni patologia immaginabile: una funzione con due
+    # estremi interni puo' avere lo stesso verso ai bordi. E' un controllo a
+    # basso costo su un difetto reale, non una dimostrazione.
+    passo = (hi - lo) * 1e-3
+    try:
+        pend_lo = f(lo + passo) - f_lo
+        pend_hi = f_hi - f(hi - passo)
+        if pend_lo * pend_hi < 0:
+            return ReverseResult(
+                None,
+                f"{etichetta}: esistono piu' valori compatibili con questo prezzo. "
+                f"Fra {lo:g} e {hi:g} il fair value non e' monotono — sale e poi scende "
+                f"(o viceversa) — quindi la domanda 'quale valore sta scontando il "
+                f"prezzo' non ha una risposta sola, e darne una sarebbe sceglierne "
+                f"arbitrariamente una delle due"
+            )
+    except DcfError:
+        pass          # non decidibile qui: decidono i controlli sugli estremi
 
     if f_lo * f_hi > 0:
         verso = "sopra" if f_lo > 0 else "sotto"

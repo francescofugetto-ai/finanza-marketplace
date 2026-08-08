@@ -13,7 +13,7 @@ lo confronta, valore per valore, con i numeri pubblicati:
   4. tutte e venticinque le celle della sensibilita'     (tolleranza +/- 0,01)
   5. i nove casi limite: errori espliciti dove non esiste un numero
   6. la forma del percorso delle ipotesi: riscalatura degli incrementi,
-     ripiego dichiarato, intervallo ammissibile
+     ripiego dichiarato, intervallo ammissibile, controllo di monotonia
 
 PERCHE' ESISTE
 --------------
@@ -539,6 +539,24 @@ def prova_forma_del_percorso(p: Prova):
     print(f"  {'ok' if ok else 'KO'}   CAGR implicito {eg.value:.2f}%, ricavi "
           f"{eg.dettagli['anno_finale']} impliciti {eg.dettagli['ricavi_finali']:,.0f} mln")
     print(f"         percorso illustrativo: {' · '.join(f'{x:.1f}' for x in eg.percorso)}")
+
+    # 9 · NON MONOTONIA: quando crescere distrugge valore, la bisezione non
+    #     puo' rispondere, e il risolutore lo dice invece di scegliere una radice
+    print()
+    esito = reverse_growth(input_base(sales_to_capital=0.318, market_price=20.0))
+    ok = (esito.value is None and "piu' valori compatibili" in esito.motivo)
+    p.afferma("crescita non monotona -> None, 'esistono piu' valori compatibili'", ok,
+              esito.motivo[:140])
+    print(f"  {'ok' if ok else 'KO'}   sales_to_capital 0,318 -> value={esito.value}")
+    print(f"         -> {esito.motivo[:110]}")
+
+    monotono = reverse_growth(input_base(sales_to_capital=3.0, market_price=20.0))
+    ok = monotono.value is not None
+    p.afferma("con reinvestimento normale il controllo di monotonia non scatta", ok,
+              monotono.motivo[:120])
+    print(f"  {'ok' if ok else 'KO'}   sales_to_capital 3,0 -> CAGR {monotono.value:.2f}%, "
+          f"il controllo non interferisce")
+
 
 # --------------------------------------------------------------------------- #
 
