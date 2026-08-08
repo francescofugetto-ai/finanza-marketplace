@@ -58,15 +58,82 @@ punti percentuali, e `motivo`, una riga di testo. Quando `value` è `None` il
 `motivo` dice perché, ed è quello che va nel report — **mai un numero al suo
 posto**.
 
-### Perché la crescita risolta è uniforme
+---
 
-`reverse_growth` non scala il percorso `[106, 30, 22, 16, 12]` di un fattore: lo
-sostituisce con **cinque valori uguali**. La ragione è d'uso, non di matematica.
-Il numero serve a essere detto a voce — *«il prezzo sconta il 58% l'anno per
-cinque anni»* — e un percorso non uniforme non si riassume in una cifra sola.
-Chi vuole ragionare sul percorso ha già la tabella per anno del calcolo diretto.
+## 2-bis · Come si muove un percorso di ipotesi
+
+Due delle quattro variabili non sono numeri ma **percorsi di cinque anni**: la
+crescita e il margine. Farne variare uno solo non è ovvio, ed è una scelta di
+metodo, non un dettaglio di implementazione.
+
+**La regola: riscalatura degli incrementi sopra il valore ancorato.** Il primo
+anno resta fermo — è quasi già noto, non è la variabile in gioco — e gli scarti
+`d[i] = m[i] − m[0]` vengono moltiplicati per il fattore che porta l'ultimo anno
+al valore cercato.
+
+Sul percorso di riferimento dei margini `22 · 26 · 29 · 31 · 33`, cercando il 45%:
+
+| convenzione | percorso ottenuto | che cosa cambia |
+|---|---|---|
+| **riscalatura** (quella adottata) | `22 · 30,36 · 36,64 · 40,82 · 45` | solo il **livello** d'arrivo |
+| interpolazione lineare (prima) | `22 · 27,75 · 33,50 · 39,25 · 45` | livello **e forma**: diventa una rampa a passo costante |
+
+**Perché conta.** Il reverse DCF deve rispondere a *«tenendo ferma la mia idea di
+**come** migliorano i margini, a quale **livello** devono arrivare»*. Se la
+convenzione cambia insieme livello e forma, il risultato non è più attribuibile al
+solo livello, e soprattutto **il percorso su cui è calcolato non è quello scritto
+da chi ha fatto le ipotesi**. La forma concava del caso di riferimento — il
+miglioramento rapido nei primi anni, poi in esaurimento — è un'ipotesi
+sull'azienda, e va conservata.
+
+Quattro comportamenti dichiarati, tutti pensati contro un modo specifico di
+sbagliare in silenzio.
+
+**1 · Il ripiego, quando il fattore è indefinito.** Il fattore salta quando
+l'ultimo anno coincide con quello ancorato. Sono due situazioni diverse:
+
+| situazione | esempio | la forma porta informazione? |
+|---|---|---|
+| percorso piatto | `22 · 22 · 22 · 22 · 22` | no, non c'è forma |
+| percorso che **torna al punto di partenza** | `22 · 26 · 29 · 31 · 22` | sì, ma non è raggiungibile riscalando |
+
+In entrambi i casi si ripiega sull'interpolazione lineare, **e lo si dichiara nel
+`motivo` con due frasi diverse — anche quando il risolutore converge.** Un ripiego
+dichiarato solo in caso di fallimento è dichiarato proprio quando serve di meno.
+La condizione è «l'ultimo incremento è zero», non «tutti gli incrementi sono
+zero»: il secondo caso della tabella passerebbe dal buco.
+
+**2 · L'intervallo ammissibile, calcolato e non sperato.** I limiti (0-60% per il
+margine, −20/+100% per la crescita) valgono per **ogni anno che il risolutore
+muove**, non solo per quello cercato. Siccome ciascun anno è una funzione affine
+del valore obiettivo, l'insieme ammissibile è un intervallo e si calcola in forma
+chiusa. Su un percorso non monotono come `22 · 35 · 20 · 28 · 33` l'intervallo si
+restringe da `[0; 60]` a **`[3,39; 54,15]`**: oltre quel tetto sarebbe il
+*secondo* anno a sfondare il 60%.
+
+Non è un formalismo. Su un percorso quasi piatto — `22 · 26 · 29 · 31 · 22,001` —
+mezzo punto oltre il tetto la riscalatura produrrebbe margini al **4560%**, e un
+fair value che non significa niente. Con il taglio, l'intervallo collassa da solo
+a `[21,998; 22,004]` e il risolutore dice onestamente che non c'è spazio.
+
+Gli anni che il risolutore **non muove** non sono vincolati: quello ancorato è un
+dato di bilancio, non un'ipotesi in cerca, e non tocca al reverse DCF contestarlo.
+
+**3 · Il fattore negativo si ammette, e si dichiara.** Se il valore cercato sta
+dall'altra parte dell'ancora — percorso crescente, prezzo che implica un margine
+finale sotto quello di partenza — il fattore diventa negativo e la forma si
+**specchia**: a prezzo 5,00 il caso di riferimento dà `22 · 20,5 · 19,4 · 18,7 ·
+18,0`, che resta «veloce all'inizio, lenta alla fine» ma in discesa. Vietarlo
+significherebbe restituire `None` ogni volta che il prezzo implica un
+peggioramento — cioè perdere l'informazione proprio nel caso più interessante. Il
+`motivo` lo dice.
+
+**4 · Mai un numero fuori banda.** Nessuna delle quattro regole allarga
+l'intervallo per ottenere una risposta: le prime tre servono a garantire che il
+numero restituito venga da un percorso interamente plausibile.
 
 ---
+
 
 ## 3 · L'ordine in cui si risolvono
 
@@ -141,7 +208,7 @@ ipotesi, prezzo ipotetico **12,00** invece di 35,93:
 | Variabile | Valore che giustifica 12,00 |
 |---|---|
 | Crescita ricavi | 31,47% l'anno |
-| Margine EBIT al quinto anno | 29,62% |
+| Margine EBIT al quinto anno | **29,48%** |
 | Crescita perpetua | 1,30% |
 | Costo del capitale | 10,74% |
 
@@ -199,6 +266,9 @@ I risolutori cercano dentro limiti dichiarati, e fuori da quelli restituiscono
 | Crescita perpetua | 0% … `wacc` − 0,5 | avvicinandosi al WACC il valore esplode e qualunque prezzo è giustificabile |
 | Costo del capitale | 4% … 25% | sotto il 4% non si sta più scontando un rischio azionario |
 
+Per la variabile che è un **percorso**, il limite vale per ogni anno mosso e non
+solo per quello cercato: l'intervallo effettivo è quello ristretto del §2-bis.
+
 **Il limite non è un dettaglio tecnico della bisezione.** È l'affermazione che
 oltre quel valore l'ipotesi non è più credibile. Allargarlo per «ottenere un
 numero» significa esattamente il contrario di ciò che il reverse DCF serve a
@@ -243,6 +313,8 @@ frase senza termine di paragone.
 ```
 reverse_growth ....... crescita uniforme 5 anni.  Limiti  -20% .. +100%
 reverse_margin ....... margine EBIT anno 5.       Limiti    0% ..   60%
+                       percorso: incrementi riscalati, anno 1 ancorato
+                       i limiti valgono per OGNI anno mosso, non solo l'ultimo
 reverse_g_terminal ... crescita perpetua.         Limiti    0% .. wacc-0,5
 reverse_wacc ......... costo del capitale.        Limiti    4% ..   25%
 ```

@@ -12,6 +12,8 @@ lo confronta, valore per valore, con i numeri pubblicati:
   3. il fair value per azione: 14,14                     (tolleranza +/- 0,01)
   4. tutte e venticinque le celle della sensibilita'     (tolleranza +/- 0,01)
   5. i nove casi limite: errori espliciti dove non esiste un numero
+  6. la forma del percorso delle ipotesi: riscalatura degli incrementi,
+     ripiego dichiarato, intervallo ammissibile
 
 PERCHE' ESISTE
 --------------
@@ -353,17 +355,27 @@ def prova_reverse(p: Prova):
     prezzo = base.market_price
 
     from dataclasses import replace
-    from dcf_engine import (ORIZZONTE_ANNI, LIMITI_CRESCITA, LIMITI_WACC,
-                            LIMITI_MARGINE, LIMITI_G_TERMINALE, MARGINE_G_WACC)
+    from dcf_engine import (LIMITI_CRESCITA, LIMITI_WACC, LIMITI_MARGINE,
+                            LIMITI_G_TERMINALE, MARGINE_G_WACC,
+                            _coefficienti_di_forma, _intervallo_ammissibile)
 
-    def percorso_margine(x):
-        return [base.ebit_margin[0] + (x - base.ebit_margin[0]) * i / (ORIZZONTE_ANNI - 1)
-                for i in range(ORIZZONTE_ANNI)]
+    # I due risolutori che muovono un percorso vengono riverificati rimettendo
+    # dentro il motore il **percorso che il motore stesso ha restituito**, non
+    # una copia della sua logica ricostruita qui: una prova che reimplementa
+    # cio' che prova puo' concordare con un'implementazione sbagliata.
+    def estremi_percorso(valori, limiti):
+        c, _ = _coefficienti_di_forma(valori)
+        return _intervallo_ammissibile(valori[0], c, limiti[0], limiti[1]), c
+
+    (lim_m, _cm) = estremi_percorso(base.ebit_margin, LIMITI_MARGINE)
+
+    def con_percorso(campo, c, valori):
+        ancora = valori[0]
+        return lambda x: replace(base, **{campo: [ancora + ci * (x - ancora) for ci in c]})
 
     casi = [
         ("reverse_growth", reverse_growth,
-         lambda x: replace(base, growth=[x] * ORIZZONTE_ANNI),
-         LIMITI_CRESCITA, "%/anno sui 5 anni"),
+         lambda x: replace(base, growth=[x] * 5), LIMITI_CRESCITA, "%/anno sui 5 anni"),
         ("reverse_g_terminal", reverse_g_terminal,
          lambda x: replace(base, g_terminal=x),
          (LIMITI_G_TERMINALE[0], base.wacc - MARGINE_G_WACC), "% perpetua"),
@@ -372,19 +384,30 @@ def prova_reverse(p: Prova):
          (max(LIMITI_WACC[0], base.g_terminal + MARGINE_G_WACC), LIMITI_WACC[1]),
          "% di costo del capitale"),
         ("reverse_margin", reverse_margin,
-         lambda x: replace(base, ebit_margin=percorso_margine(x)),
-         LIMITI_MARGINE, "% di margine EBIT al 2030"),
+         con_percorso("ebit_margin", _cm, base.ebit_margin), lim_m,
+         "% di margine EBIT al 2030"),
     ]
 
     for nome, funzione, applica, limiti, unita in casi:
         esito = funzione(base)
 
         if esito.value is not None:
-            riverifica = run_dcf(applica(esito.value)).fair_value_per_share
+            # Se il risolutore ha restituito un percorso, e' quello che si
+            # rimette dentro: `value` puo' essere una grandezza derivata (per
+            # la crescita e' il CAGR implicito, non un parametro del modello).
+            dentro = (replace(base, growth=esito.percorso)
+                      if nome == "reverse_growth" and esito.percorso
+                      else replace(base, ebit_margin=esito.percorso)
+                      if nome == "reverse_margin" and esito.percorso
+                      else applica(esito.value))
+            riverifica = run_dcf(dentro).fair_value_per_share
             ok = p.confronta(f"{nome}: la soluzione riporta il fair value sul prezzo",
                              prezzo, riverifica, TOLL_AZIONE)
             print(f"  {'ok' if ok else 'KO'}   {nome:<20}{esito.value:>8.2f} {unita:<26}"
                   f"-> fair value {riverifica:.2f} contro prezzo {prezzo:.2f}")
+            if esito.percorso:
+                print(f"         percorso: {' · '.join(f'{x:.1f}' for x in esito.percorso)}"
+                      f"   ({esito.grandezza})")
             continue
 
         # Nessuna soluzione dichiarata: si verifica che sia vero, valutando il
@@ -404,6 +427,108 @@ def prova_reverse(p: Prova):
 
 
 # --------------------------------------------------------------------------- #
+# Come si muove il percorso delle ipotesi
+# --------------------------------------------------------------------------- #
+
+def prova_forma_del_percorso(p: Prova):
+    """La semantica dei due risolutori che muovono un **percorso** e non un
+    numero: riscalatura degli incrementi sopra il valore ancorato.
+
+    Non e' un dettaglio di implementazione ma un'ipotesi di metodo, quindi va
+    provata con la stessa severita' dei valori del modello. Il difetto che
+    chiude: l'interpolazione lineare cambiava insieme **livello e forma**, cioe'
+    calcolava la risposta su un percorso che non era quello scritto da chi ha
+    fatto le ipotesi.
+    """
+    p.titolo("6 · FORMA DEL PERCORSO — riscalatura degli incrementi")
+    print()
+
+    from dcf_engine import _coefficienti_di_forma, _intervallo_ammissibile
+
+    def percorso(valori, T):
+        c, nota = _coefficienti_di_forma(valori)
+        return [valori[0] + ci * (T - valori[0]) for ci in c], nota
+
+    # 1 · il percorso di riferimento a un obiettivo noto, cinque numeri esatti
+    atteso = [22.0, 30.36, 36.64, 40.82, 45.0]
+    ottenuto, _ = percorso([22.0, 26.0, 29.0, 31.0, 33.0], 45.0)
+    ok = all(abs(a - b) <= 0.01 for a, b in zip(atteso, ottenuto))
+    p.afferma("riscalatura: 22·26·29·31·33 verso 45 -> 22·30,36·36,64·40,82·45", ok,
+              " · ".join(f"{x:.2f}" for x in ottenuto))
+    print(f"  {'ok' if ok else 'KO'}   forma concava conservata: "
+          f"{' · '.join(f'{x:.2f}' for x in ottenuto)}")
+    lineare = [22.0 + (45.0 - 22.0) * i / 4 for i in range(5)]
+    ok = any(abs(a - b) > 0.5 for a, b in zip(lineare, ottenuto))
+    p.afferma("riscalatura e interpolazione lineare danno percorsi diversi", ok)
+    print(f"  {'ok' if ok else 'KO'}   la rampa lineare sarebbe stata: "
+          f"{' · '.join(f'{x:.2f}' for x in lineare)}")
+
+    # 2 · percorso piatto -> ripiego lineare DICHIARATO
+    _, nota = percorso([25.0] * 5, 40.0)
+    ok = "piatto" in nota and "lineare" in nota
+    p.afferma("percorso piatto -> ripiego lineare dichiarato nella motivazione", ok, nota)
+    print(f"  {'ok' if ok else 'KO'}   piatto -> {nota[:80]}")
+
+    # 3 · percorso che TORNA al punto di partenza: d[-1] = 0 ma la forma esiste.
+    #     E' il caso che sarebbe passato dal buco se il ripiego fosse agganciato
+    #     a "tutti gli incrementi a zero" invece che a "l'ultimo incremento e' zero".
+    _, nota2 = percorso([22.0, 26.0, 29.0, 31.0, 22.0], 40.0)
+    ok = ("lineare" in nota2 and "piatto" not in nota2 and nota2 != nota)
+    p.afferma("percorso che torna al punto di partenza -> ripiego, motivazione diversa",
+              ok, nota2)
+    print(f"  {'ok' if ok else 'KO'}   torna all'ancora -> {nota2[:80]}")
+
+    # 4 · percorso non monotono: l'intervallo ammissibile si stringe, e agli
+    #     estremi nessun anno esce dalla banda
+    non_mono = [22.0, 35.0, 20.0, 28.0, 33.0]
+    c, _ = _coefficienti_di_forma(non_mono)
+    lo, hi = _intervallo_ammissibile(non_mono[0], c, 0.0, 60.0)
+    ok = (lo > 0.0 and hi < 60.0)
+    p.afferma("percorso non monotono -> intervallo ammissibile piu' stretto di [0;60]",
+              ok, f"[{lo:.3f}; {hi:.3f}]")
+    dentro = all(-1e-9 <= x <= 60.0 + 1e-9
+                 for T in (lo, hi) for x in percorso(non_mono, T)[0])
+    p.afferma("agli estremi dell'intervallo nessun anno esce da [0%; 60%]", dentro)
+    print(f"  {'ok' if ok and dentro else 'KO'}   non monotono -> T in [{lo:.3f}; {hi:.3f}], "
+          f"a T={hi:.3f}: {' · '.join(f'{x:.1f}' for x in percorso(non_mono, hi)[0])}")
+
+    # 5 · quasi piatto: senza il taglio la riscalatura produce margini al 4560%
+    quasi = [22.0, 26.0, 29.0, 31.0, 22.001]
+    cq, _ = _coefficienti_di_forma(quasi)
+    lq, hq = _intervallo_ammissibile(quasi[0], cq, 0.0, 60.0)
+    fuori = percorso(quasi, hq + 0.5)[0]
+    ok = (hq - lq < 0.1) and max(fuori) > 1000.0
+    p.afferma("percorso quasi piatto -> intervallo collassato attorno all'ancora", ok,
+              f"[{lq:.4f}; {hq:.4f}]")
+    print(f"  {'ok' if ok else 'KO'}   quasi piatto -> T in [{lq:.3f}; {hq:.3f}]; "
+          f"mezzo punto oltre il tetto si arriverebbe a {max(fuori):.0f}%")
+
+    # 6 · fattore negativo: forma specchiata, e dichiarata
+    esito = reverse_margin(input_base(market_price=5.0))
+    ok = (esito.value is not None and esito.value < 22.0
+          and "specchiata" in esito.motivo
+          and esito.percorso is not None and esito.percorso[0] == 22.0
+          and esito.percorso[4] < esito.percorso[0])
+    p.afferma("obiettivo sotto l'ancora -> forma specchiata e dichiarata", ok,
+              esito.motivo[:120])
+    if esito.percorso:
+        print(f"  {'ok' if ok else 'KO'}   prezzo 5,00 -> margine {esito.value:.2f}%, percorso "
+              f"{' · '.join(f'{x:.1f}' for x in esito.percorso)}")
+        print(f"         -> {esito.motivo[:100]}")
+
+    # 7 · affinita': e' la condizione che rende valida la bisezione
+    m = [22.0, 26.0, 29.0, 31.0, 33.0]
+    campioni = [(T, run_dcf(input_base(ebit_margin=percorso(m, T)[0])).fair_value_per_share)
+                for T in (5.0, 20.0, 35.0, 50.0)]
+    pend = [(campioni[i + 1][1] - campioni[i][1]) / (campioni[i + 1][0] - campioni[i][0])
+            for i in range(len(campioni) - 1)]
+    ok = (max(pend) - min(pend)) < 1e-9
+    p.afferma("il fair value e' affine nel margine obiettivo (bisezione valida)", ok,
+              f"pendenze fra {min(pend):.9f} e {max(pend):.9f}")
+    print(f"  {'ok' if ok else 'KO'}   pendenza costante a {pend[0]:.6f} "
+          f"(scarto {max(pend) - min(pend):.2e})")
+
+# --------------------------------------------------------------------------- #
 
 def main():
     print("=" * 74)
@@ -417,6 +542,7 @@ def main():
     prova_sensibilita(p)
     prova_casi_limite(p)
     prova_reverse(p)
+    prova_forma_del_percorso(p)
     sys.exit(p.riepilogo())
 
 

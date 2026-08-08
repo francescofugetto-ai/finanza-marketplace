@@ -78,7 +78,7 @@ from typing import Optional
 # ─── versione del motore ───────────────────────────────────────────────────
 # Vera variabile di modulo, non una riga dentro il commento: un controllo
 # automatico deve poterla leggere da programma.
-MOTORE_VERSIONE = "1.0"
+MOTORE_VERSIONE = "1.1"
 
 # Orizzonte esplicito. Costante di dottrina, non parametro: vedi le convenzioni.
 ORIZZONTE_ANNI = 5
@@ -197,9 +197,23 @@ class DcfResult:
 class ReverseResult:
     """Esito di un risolutore inverso. `value` e' `None` quando dentro i limiti
     di plausibilita' non esiste soluzione: in quel caso `motivo` dice perche',
-    e non si restituisce nessun numero."""
+    e non si restituisce nessun numero.
+
+    `grandezza` dice **che cosa** misura `value`: serve a non dover indovinare
+    l'unita' di misura dal nome della funzione che l'ha prodotto.
+
+    `percorso` e' l'ipotesi anno per anno che realizza la soluzione: serve a
+    mostrarla e a rimetterla nel motore per riverificarla. E' un'**illustrazione**
+    della grandezza, non il risultato.
+
+    `dettagli` porta le grandezze derivate che il report pubblica accanto a
+    `value` (per la crescita: i ricavi finali impliciti).
+    """
     value: Optional[float]        # in punti percentuali
     motivo: str
+    grandezza: str = ""
+    percorso: Optional[list] = None      # list[float], l'ipotesi anno per anno
+    dettagli: Optional[dict] = None
 
 
 # --------------------------------------------------------------------------- #
@@ -476,6 +490,74 @@ def sensitivity(inputs: DcfInputs, wacc_list: list, g_list: list) -> list:
 # Risolutori inversi (reverse DCF)
 # --------------------------------------------------------------------------- #
 
+def _coefficienti_di_forma(valori: list) -> tuple:
+    """I coefficienti `c[i]` che descrivono come si muove un percorso di ipotesi
+    quando se ne cerca il valore finale. Ritorna `(c, nota)`.
+
+    **Riscalatura degli incrementi sopra il valore ancorato.** Il primo anno resta
+    fermo — e' quasi gia' noto, non e' la variabile in gioco — e gli scarti
+    `d[i] = valori[i] - valori[0]` vengono moltiplicati per il fattore che porta
+    l'ultimo anno all'obiettivo. Quindi `c[i] = d[i] / d[-1]`, e il percorso vale
+    `valori[0] + c[i] * (obiettivo - valori[0])`.
+
+    E' la forma che risponde alla domanda giusta: *tenendo ferma l'idea di **come**
+    cambia questa grandezza, a quale **livello** deve arrivare*. L'interpolazione
+    lineare cambia insieme livello e forma, quindi il risultato non e' piu'
+    attribuibile al solo livello, e il percorso su cui e' calcolato non e' quello
+    che ha scritto chi ha fatto le ipotesi.
+
+    **Il ripiego.** Il fattore e' indefinito quando `d[-1] == 0`, cioe' quando
+    l'ultimo anno coincide con quello ancorato. Sono due situazioni diverse e la
+    nota le distingue: il percorso davvero piatto (nessuna forma da conservare) e
+    il percorso che *torna al punto di partenza* (una forma c'e', ma non e'
+    raggiungibile riscalando). In entrambi i casi si ripiega sui coefficienti
+    dell'interpolazione lineare, e **lo si dichiara**: un ripiego silenzioso e' il
+    modo peggiore di essere corretti.
+    """
+    ancora = valori[0]
+    d = [x - ancora for x in valori]
+    n = len(valori)
+
+    if d[-1] == 0.0:
+        c = [i / (n - 1) for i in range(n)]
+        if all(x == 0.0 for x in d):
+            nota = ("percorso piatto: la forma non porta informazione, ripiegato "
+                    "sull'interpolazione lineare")
+        else:
+            nota = ("il valore dell'ultimo anno coincide con quello ancorato: la forma "
+                    "esiste ma non e' riscalabile, ripiegato sull'interpolazione lineare")
+        return c, nota
+
+    return [x / d[-1] for x in d], ""
+
+
+def _intervallo_ammissibile(ancora: float, c: list, lo: float, hi: float) -> tuple:
+    """L'insieme degli obiettivi per cui **ogni anno mosso** resta dentro [lo, hi].
+
+    Ogni `percorso[i](T) = ancora + c[i] * (T - ancora)` e' affine in `T`, quindi
+    ogni vincolo `lo <= percorso[i](T) <= hi` e' una disuguaglianza lineare e
+    l'insieme ammissibile e' un **intervallo, calcolabile in forma chiusa**. Si
+    calcola invece di sperare che un controllo a campione lo intercetti.
+
+    Non e' un formalismo: su un percorso quasi piatto (`d[-1] = 0,001`) senza
+    questo taglio la riscalatura produce margini al 4560% e un fair value che non
+    significa niente. Con il taglio, l'intervallo collassa da solo attorno
+    all'ancora e il risolutore dice onestamente che non c'e' spazio.
+
+    Gli anni che il risolutore **non muove** (`c[i] == 0`) non sono vincolati:
+    quello ancorato e' un dato di bilancio, non un'ipotesi in cerca, e non tocca
+    al reverse DCF contestarlo.
+    """
+    a, b = lo, hi
+    for ci in c:
+        if ci == 0.0:
+            continue
+        x = (lo - ancora) / ci + ancora
+        y = (hi - ancora) / ci + ancora
+        a, b = max(a, min(x, y)), min(b, max(x, y))
+    return a, b
+
+
 def _bisezione(f, lo: float, hi: float, etichetta: str) -> ReverseResult:
     """Bisezione su f(x) = fair_value(x) - market_price, dentro [lo, hi].
 
@@ -484,6 +566,14 @@ def _bisezione(f, lo: float, hi: float, etichetta: str) -> ReverseResult:
     l'intervallo, perche' il limite non e' un dettaglio tecnico della bisezione —
     e' l'affermazione che oltre quel valore l'ipotesi non e' piu' credibile.
     """
+    if hi <= lo:
+        return ReverseResult(
+            None,
+            f"{etichetta}: non resta nessun intervallo ammissibile ({lo:g} .. {hi:g}). "
+            f"Fuori da questo intervallo il percorso uscirebbe dai limiti di "
+            f"plausibilita' in uno degli anni intermedi"
+        )
+
     try:
         f_lo, f_hi = f(lo), f(hi)
     except DcfError as ex:
@@ -542,6 +632,35 @@ def _senza_prezzo(inputs: DcfInputs, etichetta: str) -> Optional[ReverseResult]:
     return None
 
 
+def _rifinisci(esito: ReverseResult, valori: list, percorso, nota_forma: str,
+               grandezza: str, converti=None) -> ReverseResult:
+    """Completa l'esito di un risolutore che muove un percorso: allega il
+    percorso risolto, la nota permanente sulla forma, e l'eventuale nota sul
+    fattore negativo. Le note stanno **davanti** alla motivazione tecnica, e ci
+    stanno anche quando il risolutore converge: un ripiego dichiarato solo in
+    caso di fallimento sarebbe dichiarato proprio quando serve di meno.
+
+    `converti`, se presente, trasforma l'obiettivo risolto nella grandezza da
+    pubblicare e restituisce anche i dettagli derivati.
+    """
+    note = [nota_forma] if nota_forma else []
+    risolto = esito.value
+    p = dettagli = None
+    valore = risolto
+
+    if risolto is not None:
+        p = percorso(risolto)
+        d_finale = valori[-1] - valori[0]
+        if d_finale != 0.0 and (risolto - valori[0]) / d_finale < 0:
+            note.append("l'obiettivo sta dall'altra parte del valore ancorato: la forma "
+                        "del percorso e' conservata e specchiata")
+        if converti is not None:
+            valore, dettagli = converti(p, risolto)
+
+    motivo = " | ".join(note + [esito.motivo]) if note else esito.motivo
+    return ReverseResult(valore, motivo, grandezza=grandezza, percorso=p, dettagli=dettagli)
+
+
 def reverse_growth(inputs: DcfInputs) -> ReverseResult:
     """La crescita dei ricavi **uniforme** sui cinque anni che azzera l'upside.
 
@@ -577,7 +696,8 @@ def reverse_g_terminal(inputs: DcfInputs) -> ReverseResult:
         )
 
     f = _scarto(inputs)(lambda x: replace(inputs, g_terminal=x))
-    return _bisezione(f, LIMITI_G_TERMINALE[0], hi, "reverse_g_terminal")
+    esito = _bisezione(f, LIMITI_G_TERMINALE[0], hi, "reverse_g_terminal")
+    return replace(esito, grandezza="crescita perpetua implicita")
 
 
 def reverse_wacc(inputs: DcfInputs) -> ReverseResult:
@@ -596,27 +716,37 @@ def reverse_wacc(inputs: DcfInputs) -> ReverseResult:
         )
 
     f = _scarto(inputs)(lambda x: replace(inputs, wacc=x))
-    return _bisezione(f, lo, LIMITI_WACC[1], "reverse_wacc")
+    esito = _bisezione(f, lo, LIMITI_WACC[1], "reverse_wacc")
+    return replace(esito, grandezza="costo del capitale implicito")
 
 
 def reverse_margin(inputs: DcfInputs) -> ReverseResult:
     """Il margine EBIT del quinto anno che azzera l'upside.
 
-    Il percorso degli anni intermedi viene ricostruito **lineare** fra il margine
-    del primo anno, che resta ancorato al dato osservato, e il margine finale
-    cercato: il primo anno e' quasi gia' noto e non e' la variabile in gioco,
-    mentre e' il punto d'arrivo a cinque anni la vera ipotesi che il prezzo sta
-    scontando.
+    Il primo anno resta **ancorato** al dato osservato e gli anni intermedi si
+    muovono per **riscalatura degli incrementi** (vedi `_coefficienti_di_forma`):
+    la forma del miglioramento che hai scritto viene conservata, e a cambiare e'
+    solo il livello d'arrivo. Con il percorso di riferimento `22 · 26 · 29 · 31 ·
+    33`, cercando un margine finale del 45% si ottiene `22 · 30,36 · 36,64 ·
+    40,82 · 45` — concavo come l'originale — invece della rampa a passo costante
+    `22 · 27,75 · 33,5 · 39,25 · 45` che dava l'interpolazione lineare.
+
+    **Qui la grandezza pubblicata resta il valore risolto**, al contrario di
+    `reverse_growth`: un margine e' un punto d'arrivo, non un tasso annuo, e
+    infatti fra le tre convenzioni possibili (lineare, riscalata, traslata) il
+    margine risolto varia dell'1-9% contro il 42% del tasso di crescita.
     """
     fermo = _senza_prezzo(inputs, "reverse_margin")
     if fermo:
         return fermo
 
     ancora = inputs.ebit_margin[0]
-
-    def percorso(finale: float) -> list:
-        passi = ORIZZONTE_ANNI - 1
-        return [ancora + (finale - ancora) * i / passi for i in range(ORIZZONTE_ANNI)]
+    c, nota = _coefficienti_di_forma(inputs.ebit_margin)
+    lo, hi = _intervallo_ammissibile(ancora, c, LIMITI_MARGINE[0], LIMITI_MARGINE[1])
+    percorso = lambda x: [ancora + ci * (x - ancora) for ci in c]  # noqa: E731
 
     f = _scarto(inputs)(lambda x: replace(inputs, ebit_margin=percorso(x)))
-    return _bisezione(f, LIMITI_MARGINE[0], LIMITI_MARGINE[1], "reverse_margin")
+    esito = _bisezione(f, lo, hi, "reverse_margin")
+
+    return _rifinisci(esito, inputs.ebit_margin, percorso, nota,
+                      "margine EBIT dell'ultimo anno esplicito")
