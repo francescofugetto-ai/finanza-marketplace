@@ -332,7 +332,8 @@ superata — in silenzio, che è esattamente ciò contro cui è scritto questo s
 **Nessuna scrittura.** Lo script legge e basta. Il record del passo 8 lo scrive la
 skill attraverso il registro, non lo scadenzario.
 
-La prova di riferimento (`scripts/test_scadenzario.py`, **80 controlli**) verifica:
+La prova di riferimento (`scripts/test_scadenzario.py` — il numero dei controlli
+lo stampa lui stesso alla fine, e per questo non è ripetuto qui) verifica:
 azienda mai valutata; valutazione di 30 giorni (`CORRENTE`); di 120 giorni
 (`DA RIESAMINARE`); di 400 giorni (`SCADUTA`); scaduta per
 `ipotesi_valide_fino_a` pur restando sotto i 365 giorni; catena di tre record

@@ -77,6 +77,14 @@ intervallo con tre scenari affiancati resiste a quella compressione; «14,14» n
 sensibilità, gli allarmi o le trappole contabili: quelli restano tutti. Si toglie
 solo ciò che può essere scambiato per un'istruzione.
 
+**E non è nemmeno facoltativo: si producono sempre tutti e due.** Non è una
+scelta da fare caso per caso in base a chi leggerà — nel momento in cui la si
+fa, si è già deciso che quella valutazione a qualcuno non si mostra. Ogni
+valutazione deve esistere **anche in una forma mostrabile a terzi**: è la stessa
+disciplina del fair value, spostata dal numero al documento. Il record nel
+registro porta il percorso del **condiviso**, mai quello dell'interno — un
+record condivisibile non contiene puntatori a materiale che non lo è.
+
 ---
 
 ## 3 · Elenco esplicito delle frasi vietate
@@ -266,8 +274,33 @@ di controllo in un abbellimento.
 propria perché è il punto in cui la forma cede più facilmente.
 
 La risposta ha **una sola funzione**: spiegare che scommessa c'è dietro il prezzo,
-e riportare al piano. Registro condiviso, sempre. Record nel registro del
-soggetto.
+e riportare al piano. Registro condiviso, sempre.
+
+**Nel registro finiscono due record distinti, e devono restare separati.**
+
+| | che cos'è | `layer` | `soggetto` | punta a |
+|---|---|---|---|---|
+| **la valutazione** | il lavoro sull'azienda | `dottrina` | `-` | il documento **condiviso** |
+| **la traccia** | che quel giorno, a quel cliente, hai risposto su quel titolo | `mandato` | il cliente | lo stesso documento **condiviso** |
+
+Sono due cose diverse: **la valutazione non appartiene a nessuno** — vale per
+chiunque la legga, ed è per questo che è dottrina — mentre **la conversazione
+appartiene a quel rapporto**, e dice che quel giorno, a quel cliente, hai
+risposto su quel titolo. Un solo record che facesse le due cose renderebbe la
+valutazione proprietà di un mandato, e la volta che lo stesso titolo servisse
+per un altro soggetto non si saprebbe se riutilizzarla.
+
+Entrambi puntano al documento **condiviso**: vale qui come ovunque, un record
+condivisibile non contiene puntatori a materiale che non lo è. Il documento
+interno resta sul disco, e non è indicizzato da nessuno dei due.
+
+**Il rapporto normale è uno a molti**, non uno a uno: l'azienda si valuta una
+volta, le conversazioni che la citano sono molte. Nel tempo più tracce di
+mandato — soggetti diversi, date diverse — puntano alla **stessa** valutazione
+di dottrina. Non è un caso limite da gestire: è la ragione per cui la
+valutazione sta in dottrina e non dentro il primo mandato che l'ha richiesta.
+Finché è corrente si riusa; quando scade si rivaluta **una volta sola**, e le
+tracce successive puntano alla nuova.
 
 Tre cose che non si fanno, in ordine di frequenza.
 

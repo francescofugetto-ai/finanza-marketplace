@@ -1,6 +1,6 @@
 {
   "name": "finanza-personale",
-  "description": "Suite di consulenza finanziaria indipendente area euro: asset allocation ETF (canone The Bull), titoli di Stato singoli, distillazione fonti con filtro di persistenza, rendimenti attesi top-down, Monte Carlo multi-asset, metodo fiduciario comune e registro della knowledge base decisionale.",
+  "description": "Suite di consulenza finanziaria indipendente area euro: asset allocation ETF (canone The Bull), titoli di Stato singoli, valutazione DCF di singole aziende quotate con fair value per scenari e reverse DCF, distillazione fonti con filtro di persistenza, rendimenti attesi top-down, Monte Carlo multi-asset, metodo fiduciario comune e registro della knowledge base decisionale.",
   "author": {
     "name": "Francesco"
   },

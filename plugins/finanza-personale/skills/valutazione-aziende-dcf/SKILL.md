@@ -189,6 +189,11 @@ Parametro `registro`: `interno` o `condiviso` — **cambia solo il rendering, ma
 calcolo**. Nel condiviso il fair value compare solo come intervallo con i tre
 scenari affiancati.
 
+**Si producono sempre tutti e due, non uno a scelta.** Una valutazione che esiste
+solo nella forma interna non è finita: ogni valutazione deve esistere anche in una
+forma mostrabile a terzi. Due file distinti, stesso calcolo — vedi
+`references/06-verdetto-e-linguaggio.md` §2.
+
 Poi il **record nel registro**, con `kb-registro`: azienda, ticker, esercizio di
 riferimento, prezzo con data e ora, modalità, ipotesi dei tre scenari, intervallo
 di fair value, frase del reverse DCF, allarmi, `ipotesi_valide_fino_a`, almeno un
@@ -332,6 +337,8 @@ Procedi solo se tutte le risposte sono «sì».
 - `scripts/test_scadenzario.py` — prova di riferimento dello scadenzario: i quattro
   stati, i bordi delle soglie, la catena di tre record, i campi malformati, le
   contraddizioni fra i due campi di catena e la prova che il registro resti byte
-  per byte quello di prima. **80 controlli.**
+  per byte quello di prima. Il conteggio dei controlli lo stampa il test stesso
+  quando lo esegui: non è ripetuto qui, perché un numero scritto a mano mente
+  al primo controllo aggiunto.
 - `template-report.html` — nella cartella `assets/`. Le dodici sezioni del
   documento, parametro `registro` fra `interno` e `condiviso`.

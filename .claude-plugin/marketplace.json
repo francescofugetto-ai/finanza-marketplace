@@ -8,7 +8,7 @@
     {
       "name": "finanza-personale",
       "source": "./plugins/finanza-personale",
-      "description": "Sette skill di consulenza finanziaria indipendente area euro: metodo fiduciario e flusso di lavoro comune, portafogli ETF, titoli di Stato singoli, distillazione fonti con filtro di persistenza, rendimenti attesi, Monte Carlo, registro decisionale.",
+      "description": "Otto skill di consulenza finanziaria indipendente area euro: metodo fiduciario e flusso di lavoro comune, portafogli ETF, titoli di Stato singoli, valutazione DCF di singole aziende quotate, distillazione fonti con filtro di persistenza, rendimenti attesi, Monte Carlo, registro decisionale.",
       "category": "finance"
     }
   ]

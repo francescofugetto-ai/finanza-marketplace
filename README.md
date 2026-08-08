@@ -9,6 +9,7 @@ finanza personale e la memoria decisionale condivisa fra i progetti.
 |---|---|
 | `consulenza-portafogli-etf` | profilazione, asset allocation, canone The Bull, PIC/PAC |
 | `analisi-titoli-di-stato-eu` | bond governativi singoli, YTM netto, ladder |
+| `valutazione-aziende-dcf` | singole aziende quotate, fair value per scenari, reverse DCF |
 | `analisi-documenti-investimento` | distillazione fonti + gate segnale/rumore + design system |
 | `rendimenti-attesi-portafoglio` | E[r] a 10 anni top-down e bottom-up |
 | `simulazione-montecarlo` | distribuzione del capitale futuro, P(obiettivo) |
@@ -27,7 +28,7 @@ fra-finanza/
 ├── .claude-plugin/marketplace.json
 └── plugins/finanza-personale/
     ├── .claude-plugin/plugin.json
-    └── skills/<sette skill>/
+    └── skills/<una cartella per skill>/
 ```
 
 ## Installazione

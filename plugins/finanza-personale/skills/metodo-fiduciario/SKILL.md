@@ -36,9 +36,15 @@ Ordine fisso, dal primo turno della sessione:
 
 ### 0.3 · Confine fra le skill
 
-«**Quanto** / **quale asset class**» → `consulenza-portafogli-etf`. «**Quale titolo**, a quale netto, quale scadenza e rischio» → `analisi-titoli-di-stato-eu`. «**Quanto rende l'insieme** a 10 anni» → `rendimenti-attesi-portafoglio`, che sui singoli titoli **non ricalcola nulla**: importa lo YTM netto già prodotto e lo tratta come input certo per i titoli tenuti a scadenza. «**Come si distribuisce l'esito**» → `simulazione-montecarlo`, che riceve gli `exp_return` per asset da `rendimenti-attesi-portafoglio` e non dalla propria tabella di default — quella resta il fallback, dichiarato. Volatilità e correlazioni restano assunzioni della Monte Carlo.
+«**Quanto** / **quale asset class**» → `consulenza-portafogli-etf`. «**Quale titolo**, a quale netto, quale scadenza e rischio» → `analisi-titoli-di-stato-eu`. «**Quanto rende l'insieme** a 10 anni» → `rendimenti-attesi-portafoglio`, che sui singoli titoli **non ricalcola nulla**: importa lo YTM netto già prodotto e lo tratta come input certo per i titoli tenuti a scadenza. «**Come si distribuisce l'esito**» → `simulazione-montecarlo`, che riceve gli `exp_return` per asset da `rendimenti-attesi-portafoglio` e non dalla propria tabella di default — quella resta il fallback, dichiarato. Volatilità e correlazioni restano assunzioni della Monte Carlo. «**Quanto vale questa azienda**, e con quali assunzioni» → `valutazione-aziende-dcf`, da non confondere con la modalità B di `analisi-documenti-investimento`, che risponde a un'altra domanda: «questo strumento serve al mio scopo, e come si confronta con i concorrenti».
 
-Se ci sono titoli singoli, la skill titoli di Stato entra **prima** dei rendimenti attesi e le passa lo YTM netto già calcolato.
+Se ci sono titoli singoli, la skill titoli di Stato entra **prima** dei rendimenti attesi e le passa lo YTM netto già calcolato. Se esiste una valutazione d'azienda, entra anch'essa **prima** dei rendimenti attesi, e passa il proprio esito come **strato di contesto**: non sostituisce il top-down, lo informa.
+
+**`valutazione-aziende-dcf` — confine.** Si occupa di singole aziende quotate. Non decide mai pesi di portafoglio, non genera trigger di ribilanciamento, non entra nelle sessioni di allocazione, PAC o profilazione. Il suo output alimenta due cose e due sole: le **aspettative** (`rendimenti-attesi-portafoglio`, come strato di contesto, mai come sostituto del top-down DY+g) e i **vincoli di consapevolezza** a registro.
+
+**Il lavoro di valutazione può cambiare quanto ti aspetti e quanto rischio sai di correre. Non può cambiare i pesi.**
+
+L'anti-timing resta intatto. Dirigere i nuovi flussi del PAC sulla base di una valutazione è una forma morbida di timing: se ammessa, va scritta *ex ante* come regola con soglia numerica e data, mai decisa caso per caso.
 
 ---
 
