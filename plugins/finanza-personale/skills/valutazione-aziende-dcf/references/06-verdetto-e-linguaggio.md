@@ -106,6 +106,21 @@ nuova che produce lo stesso effetto è vietata anche se non compare qui.
 | «potenziale di rivalutazione» | idem, in tono istituzionale | — si toglie |
 | il fair value come numero isolato, nel registro **condiviso** | viene letto come obiettivo | l'intervallo con i tre scenari affiancati |
 
+**Il multiplo non è più innocente della percentuale.** *«Il prezzo sta 2,5 volte
+sopra lo scenario base»* e *«upside del 154%»* dicono la stessa identica cosa:
+cambia la cornice, non il contenuto. Il multiplo si preferisce perché non ha la
+forma di un obiettivo raggiungibile, ma il presidio vero non è il formato — è la
+frase intorno.
+
+> **Il multiplo non si lascia mai da solo.** Ovunque compaia, nella stessa frase
+> o in quella immediatamente successiva, va detto **che cosa il mercato sta
+> assumendo** per arrivarci.
+
+Non *«il prezzo sta 2,5 volte sopra lo scenario base»* e a capo, ma *«il prezzo
+sta 2,5 volte sopra lo scenario base: a quel livello sta scontando ricavi in
+crescita del 58% l'anno per cinque anni»*. Il numero da solo è una distanza; la
+distanza con l'ipotesi accanto è un'affermazione verificabile sul mondo.
+
 ### C · Etichette secche
 
 | Vietato | Perché | Che cosa si scrive invece |
@@ -199,12 +214,49 @@ sintesi.
    di `references/02-ipotesi.md` §8.
 4. **La matrice di sensibilità.** In entrambi i registri. È ciò che impedisce di
    leggere l'intervallo come una promessa.
-5. **Gli allarmi emessi dal motore**, tutti, anche quelli scomodi. Un allarme
-   taciuto è l'unico modo di trasformare uno strumento di controllo in un
-   abbellimento.
+5. **Tutti e cinque i controlli del motore, ognuno con il suo stato** — e sono
+   tre, non due. Vedi §5-bis.
 6. **Che cosa falsificherebbe le ipotesi** — due o tre indicatori, con la soglia.
 7. **La chiusura fissa**: contenuto informativo, non consulenza finanziaria
    personalizzata.
+
+---
+
+## 5-bis · I tre stati di un allarme
+
+Un allarme del motore non ha due stati, ne ha **tre**. Vale per tutti e cinque —
+`SBC_ELEVATA`, `TV_DOMINANTE`, `G_SOPRA_RISK_FREE`, `CASSA_NETTA`,
+`PARTECIPAZIONI_RILEVANTI` — e il documento li elenca tutti e cinque, sempre,
+ognuno con il suo stato accanto.
+
+| Stato | Che cosa significa | Quando |
+|---|---|---|
+| **scattato** | la soglia è stata superata | il motore ha restituito la sigla |
+| **non scattato** | il controllo è girato e la soglia non è stata superata | tutti i dati che gli servono ci sono |
+| **non valutabile** | il controllo **non è potuto girare**: manca un dato | il campo che gli serve è vuoto |
+
+Il terzo stato è quello che esiste per una ragione precisa, ed è la stessa per
+cui in `verifica.py` l'assenza di un interprete più vecchio dà GIALLO e non
+VERDE:
+
+> **Un controllo che non ha potuto girare non è un controllo superato.**
+> Se lo si conta come «non scattato», il controllo diventa silenziosamente un
+> no-op che dice «tutto bene». È un modo di fallire peggiore del non avere il
+> controllo, perché consuma la fiducia che gli si dà.
+
+I due campi opzionali del motore, `sbc` e `risk_free`, sono l'unico posto da cui
+nasce oggi un «non valutabile»: se restano vuoti i rispettivi allarmi non possono
+scattare. Si valorizzano sempre. Quando non si può — il dato non è nel bilancio,
+o non è stato letto — lo stato è **non valutabile**, scritto nel documento, e non
+si scrive «nessun allarme».
+
+La frase «nessun allarme emesso» si può scrivere **solo** se tutti e cinque i
+controlli sono girati davvero. Con anche uno solo in «non valutabile», la frase
+onesta è: *«nessuno dei controlli che hanno potuto girare ha superato la propria
+soglia»*, seguita da quali non hanno potuto girare e perché.
+
+Un allarme taciuto resta ciò che era: l'unico modo di trasformare uno strumento
+di controllo in un abbellimento.
 
 ---
 
@@ -257,7 +309,8 @@ Cinque regole, e la prima le contiene tutte.
 3. **Le uniche etichette ammesse sono tre**: aspettative modeste, esigenti,
    eroiche — ancorate allo storico e al miglior concorrente.
 4. **Nessun orizzonte temporale**, in nessuna forma: il modello non ne produce.
-5. **Un allarme taciuto è un difetto**, non una semplificazione.
+5. **Un allarme taciuto è un difetto**, non una semplificazione — e gli stati di
+   un allarme sono **tre**: scattato, non scattato, non valutabile (§5-bis).
 
 Il file successivo, `references/07-ponte-etf.md`, applica tutto questo al punto
 più delicato: che cosa succede quando le aziende valutate stanno dentro un ETF

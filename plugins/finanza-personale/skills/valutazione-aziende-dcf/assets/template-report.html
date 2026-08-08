@@ -39,6 +39,34 @@
  perche' il registro di un documento consegnato non deve poter essere cambiato
  da chi lo riceve.
 
+ I CINQUE ALLARMI HANNO TRE STATI, NON DUE
+ -----------------------------------------
+ scattato · non scattato · **non valutabile**, cioe' il controllo non e' potuto
+ girare perche' gli manca un dato (oggi: i campi opzionali `sbc` e `risk_free`).
+ Il §9 elenca tutti e cinque i controlli con il loro stato, sempre. Un controllo
+ che non ha potuto girare NON e' un controllo superato, e la frase «nessun
+ allarme» si puo' scrivere solo se tutti e cinque sono girati davvero.
+ La regola per esteso: references/06-verdetto-e-linguaggio.md §5-bis.
+
+ ═══ SUI DATI DI ESEMPIO DI QUESTO FILE — AVVISO CHE NON SPARISCE MAI ═══
+ Il banner rosso in cima al documento sparisce con `esempio: false`, ma i numeri
+ restano scritti qui sotto finche' non li si sostituisce. Quindi, una volta per
+ tutte:
+
+   L'episodio 337 di The Bull pubblica i TRE RISULTATI — 3,93 · 14,14 · 36,27
+   dollari per azione — ma NON le ipotesi che li generano.
+
+ Solo lo scenario BASE e' ricostruito dalle ipotesi vere, quelle della prova di
+ riferimento in scripts/test_dcf_engine.py. Gli scenari PRUDENTE e FAVOREVOLE
+ hanno ipotesi **mie**, cercate col motore finche' non ha riprodotto i due esiti
+ pubblicati; il favorevole esce a 36,28 contro il 36,27 pubblicato, ed e' la
+ prova che non sono le ipotesi originali. Anche `risk_free` 4,30% e il campo
+ `sbc` lasciato vuoto sono scelte di comodo per far vedere il rendering.
+
+ QUESTI NUMERI NON SI COPIANO ALTROVE. Non in una reference, non nel canone
+ The Bull, e non si citano mai come «ipotesi di The Bull»: sono dati di prova
+ di un template, e fuori di qui non hanno nessuna autorita'.
+
  DIPENDENZE: il font Inter e Chart.js, entrambi da CDN. Nient'altro. Il design
  system (variabili CSS, .stat-row, .cmp, i box con bordo sinistro, i 840px di
  larghezza) e' quello dei report esistenti del sistema, ripreso identico.
@@ -183,7 +211,7 @@
 <div id="s4"></div>
 
 <!-- ══════════ 5 · DAL VALORE ALL'AZIONE ══════════ -->
-<h2>5 · Dal valore all'azione</h2>
+<h2>5 · Dal valore d'impresa al valore per azione</h2>
 <div id="s5"></div>
 
 <!-- ══════════ 6 · I TRE SCENARI ══════════ -->
@@ -257,6 +285,13 @@ const D = {
   /* La frase del reverse DCF. Forma fissa: prezzo, data, «sta scontando»,
      nessuna conclusione attaccata in coda. Nel registro condiviso e' il titolo. */
   frase_reverse: "A 35,93 dollari, al 7 agosto 2026, il prezzo sta scontando ricavi in crescita del 58% l'anno per cinque anni — quasi dieci volte il fatturato attuale.",
+
+  /* La distanza dal prezzo si scrive come multiplo, mai come percentuale di
+     rialzo o di ribasso — ma il multiplo e la percentuale dicono la stessa cosa:
+     cambia la cornice, non il contenuto. Il presidio e' la frase intorno, non il
+     formato. Questo campo e' quella frase, e il template NON stampa mai il
+     multiplo senza accodargliela. Regola: `06` §3.B. */
+  assunzione_implicita: "a quel prezzo il mercato sta scontando ricavi in crescita del 58% l'anno per cinque anni",
 
   /* Il termine di paragone e cio' che falsificherebbe l'ipotesi stanno nel §10:
      il verdetto e' fatto di tre pezzi e questo e' il primo. */
@@ -387,8 +422,15 @@ const D = {
   ],
   reverse_avvertenza: "I quattro numeri non si sommano e non si combinano: ognuno risponde a «se questa fosse l'unica cosa a cambiare». Sono quattro letture della stessa distanza, non quattro conferme indipendenti.",
 
-  /* Tutti e cinque i controlli del motore, con il loro stato. Un allarme taciuto
-     e' un difetto del documento; un controllo che non ha potuto girare va detto. */
+  /* TUTTI E CINQUE i controlli del motore, sempre, ognuno con il suo stato.
+     Gli stati ammessi sono TRE e valgono per tutti e cinque:
+       "emesso"          la soglia e' stata superata
+       "non emesso"      il controllo e' girato e la soglia non e' stata superata
+       "non valutabile"  il controllo NON e' potuto girare: gli manca un dato
+     Il terzo non e' una sfumatura del secondo: un controllo che non ha potuto
+     girare non e' un controllo superato, e contarlo come tale trasformerebbe il
+     controllo in un no-op che dice «tutto bene».
+     Regola in references/06-verdetto-e-linguaggio.md §5-bis. */
   allarmi: [
     { sigla: "TV_DOMINANTE", stato: "emesso",
       dove: "scenario favorevole",
@@ -469,6 +511,8 @@ const D = {
   const versoBase = VOLTE >= 1
     ? `il prezzo sta ${den(VOLTE)} volte sopra lo scenario base`
     : `il prezzo sta a ${den(VOLTE)} volte lo scenario base, cioe' sotto`;
+  /* il multiplo non esce mai da solo: `06` §3.B */
+  const distanza = `${versoBase}, e ${D.assunzione_implicita}`;
 
   /* ── banner dei dati di esempio ─────────────────────────────────────────── */
   el("banner-esempio").innerHTML = D.esempio
@@ -505,7 +549,7 @@ const D = {
   el("k-stats").innerHTML = `
     <div class="stat"><div class="stat-lbl">Prezzo di mercato</div><div class="stat-val">${den(PREZZO)}</div><div class="stat-note">${D.prezzo.data}, ore ${D.prezzo.ora} · ${D.prezzo.fonte}</div></div>
     ${statFV}
-    <div class="stat"><div class="stat-lbl">Distanza dal prezzo</div><div class="stat-val">${den(VOLTE)}×</div><div class="stat-note">${versoBase}</div></div>
+    <div class="stat"><div class="stat-lbl">Distanza dal prezzo</div><div class="stat-val">${den(VOLTE)}×</div><div class="stat-note">${distanza}</div></div>
     <div class="stat"><div class="stat-lbl">Esercizio di riferimento</div><div class="stat-val" style="font-size:15px;line-height:1.5">${D.azienda.esercizio}</div><div class="stat-note">${D.azienda.fonte_bilancio}</div></div>`;
 
   /* ── 1 · in una riga ────────────────────────────────────────────────────── */
@@ -591,7 +635,7 @@ const D = {
     }
   });
 
-  /* ── 5 · dal valore all'azione — la cascata del ponte, voce per voce ────── */
+  /* ── 5 · dal valore d'impresa al valore per azione: la cascata del ponte ── */
   const B = BASE.bridge;
   const scala = Math.max(...B.map(r => Math.abs(r.importo))) || 1;
   const righePonte = B.map((r, i) => {
@@ -675,7 +719,7 @@ const D = {
       <p style="margin:0;font-size:13px;color:var(--text-secondary)">Fra il minimo e il massimo c'e' un fattore
         ${den(FV_MAX / FV_MIN)}, con ipotesi tutte difendibili. <strong>Quel fattore e' il risultato</strong>:
         dice che il valore di questa azienda non e' governato da cio' che ha fatto, ma da cio' che si crede fara'.
-        Rispetto a questo intervallo, ${versoBase}.</p>
+        Rispetto a questo intervallo, ${distanza}.</p>
     </div>
     <div class="scen-grid">${cardScenari}</div>
     ${COND ? `<p class="legenda">Il fair value compare qui, e solo qui, come intervallo con i tre scenari
@@ -746,14 +790,22 @@ const D = {
 
   el("s9").innerHTML = `
     <p>Tutti e ${D.allarmi.length} i controlli del motore, con il loro stato. Gli allarmi sono dati, non
-       eccezioni: il calcolo prosegue e il documento li mostra tutti, compresi quelli scomodi.</p>
+       eccezioni: il calcolo prosegue e il documento li mostra tutti, compresi quelli scomodi. Gli stati
+       sono tre — <strong>emesso</strong>, <strong>non emesso</strong> e <strong>non valutabile</strong>,
+       che vuol dire che al controllo manca un dato e non e' potuto girare. Il terzo non e' una sfumatura
+       del secondo.</p>
     <div class="cmp-table-wrap"><table class="cmp">
       <thead><tr><th>Controllo</th><th>Stato</th><th>Dove</th></tr></thead>
       <tbody>${D.allarmi.map(a => `
         <tr class="${a.stato === "emesso" ? "highlight" : ""}"><td class="metric">${a.sigla}</td><td>${pillStato(a.stato)}</td><td>${a.dove}</td></tr>
         <tr><td colspan="3" style="color:var(--text-secondary)">${a.testo}</td></tr>`).join("")}
       </tbody></table></div>
-    ${emessi.length ? emessi.map(a => `<div class="box-danger"><strong>${a.sigla}.</strong> ${a.testo}</div>`).join("") : `<div class="box-success"><strong>Nessun allarme emesso.</strong> Nessuno dei controlli che hanno potuto girare ha superato la propria soglia.</div>`}
+    ${emessi.length
+        ? emessi.map(a => `<div class="box-danger"><strong>${a.sigla}.</strong> ${a.testo}</div>`).join("")
+        : nonValutabili.length
+          /* «nessun allarme» si puo' scrivere solo se tutti e cinque sono girati davvero */
+          ? `<div class="box-success"><strong>Nessuno dei controlli che hanno potuto girare ha superato la propria soglia.</strong> ${nonValutabili.length} su ${D.allarmi.length} non hanno potuto girare: si veda il riquadro qui sotto.</div>`
+          : `<div class="box-success"><strong>Nessun allarme.</strong> Tutti e ${D.allarmi.length} i controlli sono girati e nessuno ha superato la propria soglia.</div>`}
     ${nonValutabili.length ? `<div class="box-warn"><strong>Un controllo che non ha potuto girare non e' un controllo superato.</strong>
        ${nonValutabili.map(a => a.sigla).join(", ")}: ${nonValutabili.map(a => a.testo).join(" ")}</div>` : ""}`;
 
