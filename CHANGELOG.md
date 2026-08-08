@@ -61,6 +61,34 @@ buona parte di quello che segue esiste per impedirlo.
   mandato: *la valutazione non appartiene a nessuno, la conversazione si'*), e i
   conteggi di controlli tolti dai testi, che ora rimandano all'output delle prove.
 
+**Il canone The Bull: l'episodio 337 entra, ed e' il diciottesimo**
+
+- `canone-the-bull/P3-azionario.md` — sezione nuova **«Valutare una singola
+  azienda: il DCF in pratica»** `[TB-337]`: i tre ingredienti del valore, perche'
+  la cassa e non l'utile, il FCFF che nel primo anno e' negativo perche' la
+  crescita costa, il tasso di sconto come leva che sposta il fair value del 60%
+  fra l'8% e il 12%, il valore terminale che pesa l'**83%** dell'enterprise
+  value, e il ponte riga per riga fino ai 14,14 dollari per azione.
+- La tesi e' andata in un file **pilastro esistente**, non in un file nuovo: il
+  paragrafo «Il prezzo = utili futuri scontati» era gia' li', e l'episodio ne e'
+  la continuazione operativa. La dottrina piena resta dove e' gia' distillata —
+  i nove `references` di `valutazione-aziende-dcf` — perche' il canone si
+  distilla una volta sola.
+- `canone-the-bull/00-principi-e-mappa.md` — riga d'indice, mappa ai pilastri,
+  pie' di pagina di versione a **18 episodi**, e la lacuna della fonte: dei tre
+  fair value l'episodio pubblica le ipotesi **solo dello scenario centrale**.
+  Bear e bull si citano come misura della dispersione, non si ricostruiscono a
+  ritroso dal numero.
+- Conflitto **C-M** nel registro: *«math is not an edge»* `[TB-222]` contro il
+  costruire un DCF `[TB-337]`. Non e' una smentita, e' la dimostrazione — stessa
+  azienda, ipotesi tutte difendibili, **3,93 · 14,14 · 36,27**. Il fattore nove
+  non e' il fallimento del metodo, e' il suo risultato. Conseguenza vincolante,
+  identica al confine gia' scritto nella skill: l'output puo' cambiare il
+  rendimento atteso e la consapevolezza del rischio, **mai un peso di
+  portafoglio**. L'anti-timing resta intatto.
+- **Nessun principio trasversale nuovo.** Il principio 12 copriva gia' la tesi:
+  TB-337 la quantifica, non la estende. Aggiungerne uno avrebbe duplicato.
+
 **Il controllo di salute** (`verifica.py`, che vive fuori da questo repository)
 
 - Gruppo **TEST** nuovo, separato da MOTORI: MOTORI verifica che i sorgenti
@@ -72,6 +100,13 @@ buona parte di quello che segue esiste per impedirlo.
   procedura anti-disastro devono esistere davvero.
 - Regola che governa tutti i gialli: **un controllo che non ha potuto girare non
   e' un controllo superato**, e ogni giallo dice che cosa fare per chiuderlo.
+- Il conteggio atteso degli episodi del canone passa a **18** con TB-337. Resta
+  un numero scritto a mano di proposito, ed e' l'unica eccezione alla regola dei
+  numeri calcolabili: il controllo confronta gia' pie' di pagina e righe di
+  tabella fra loro, ma quei due si possono ridurre **insieme**, e allora un
+  canone che perde un episodio passerebbe verde. La ragione e' scritta accanto
+  alla costante.
+- Con questo, **zero gialli**: 53 controlli, 53 verdi, sui tre interpreti.
 
 ## 2026-08-05 — due difetti emersi dalle prove sul campo
 
