@@ -215,16 +215,16 @@ del valore sta nella coda.
 
 ---
 
-## 7 · Il caso `roic_terminal` ≤ `g_terminal`
+## 7 · Il caso `roic_terminal` ≤ `g_terminal` — il motore si ferma
 
-Merita una nota perché il motore **non lo blocca**, e conviene sapere che cosa
-succede.
+**Il motore lo blocca con un errore esplicito.** Non è una nota di cautela: è una
+delle condizioni di validità della formula, come `wacc > g_terminal`.
 
 Se `roic_terminal` è uguale a `g_terminal`, il fattore `(1 − g/ROIC)` vale **zero**:
 il tasso di reinvestimento è il 100%, tutto il NOPAT torna dentro l'azienda per
-finanziare la crescita, e il flusso libero è nullo. Il valore terminale è zero. È
-il caso limite corretto, e ha un significato preciso: **una crescita che rende
-esattamente quanto costa non crea valore.**
+finanziare la crescita, e il flusso libero è nullo. Il valore terminale è zero. Ha
+un significato preciso — **una crescita che rende esattamente quanto costa non crea
+valore** — ma non è un fair value: è un modello che ha smesso di dire qualcosa.
 
 Se `roic_terminal` è **minore** di `g_terminal`, il fattore diventa negativo e il
 valore terminale con lui. Aritmeticamente coerente — per crescere così in fretta
@@ -232,10 +232,16 @@ con un ritorno così basso bisognerebbe immettere capitale all'infinito — ma i
 risultato non è una valutazione: è la descrizione di una combinazione che non
 esiste come stato stazionario.
 
-Il motore in questo caso restituisce un numero, e quel numero può essere negativo.
-**Va letto come un segnale che le due ipotesi sono incompatibili**, non come un
-fair value. L'unico caso che il motore blocca è `roic_terminal = 0`, dove la
-divisione non sarebbe definita.
+In entrambi i casi il motore **solleva `DcfError` e non restituisce niente**. È la
+stessa famiglia di `wacc ≤ g_terminal`, e riceve lo stesso trattamento per la
+stessa ragione: un valore terminale nullo o negativo esce dal modello come un
+numero plausibile, con la virgola al posto giusto, e nessuno si accorge che sotto
+non c'è nessuna azienda. Le celle della matrice di sensibilità che finiscono in
+questa condizione restano **vuote**, come quelle in cui il WACC non supera `g`.
+
+Cosa farne, quando capita: non si aggira alzando il ROIC finché il motore riparte.
+Le due ipotesi vanno riportate a coerenza guardando quale delle due è debole — di
+norma è la crescita perpetua, non la barriera competitiva.
 
 ---
 
@@ -244,7 +250,7 @@ divisione non sarebbe definita.
 ```
 g_terminal ...... float, %.  Sotto risk_free. Sempre sotto wacc, o e' errore.
 roic_terminal ... float, %.  Solo qui. Barriera competitiva nominabile.
-                             Se <= g_terminal, le due ipotesi sono incompatibili.
+                             Sempre sopra g_terminal, o e' errore.
 ```
 
 Quattro cose da ricordare:
@@ -252,8 +258,9 @@ Quattro cose da ricordare:
 1. Il valore terminale pesa l'**80-85%**: è lì che va speso il controllo.
 2. Il fattore `(1 − g/ROIC)` **cambia con `g`**. Dimenticarlo vale +21% di valore;
    calcolarlo una volta sola sbaglia le colonne esterne della sensibilità.
-3. `wacc > g_terminal` non è una raccomandazione: è la condizione perché la
-   formula significhi qualcosa. Il motore si ferma, e fa bene.
+3. `wacc > g_terminal` **e** `roic_terminal > g_terminal` non sono
+   raccomandazioni: sono le due condizioni perché la formula significhi qualcosa.
+   Su entrambe il motore si ferma, e fa bene.
 4. Se il TV supera l'85% dell'enterprise value, il modello sta parlando del sesto
    anno in poi. Va detto, non nascosto.
 

@@ -227,6 +227,18 @@ def _valida(inputs: DcfInputs) -> None:
     if inputs.roic_terminal == 0:
         raise DcfError("roic_terminal a zero: il fattore (1 - g/ROIC) non e' definito")
 
+    if inputs.roic_terminal <= inputs.g_terminal:
+        raise DcfError(
+            f"roic_terminal ({inputs.roic_terminal}%) <= g_terminal "
+            f"({inputs.g_terminal}%): il tasso di reinvestimento g/ROIC diventa "
+            f"maggiore o uguale a 1, quindi il fattore (1 - g/ROIC) e' zero o "
+            f"negativo e il flusso di cassa terminale va a zero o sotto. E' lo "
+            f"stesso caso degenere di wacc <= g_terminal: un'azienda non puo' "
+            f"crescere per sempre piu' di quanto renda il capitale che la finanzia. "
+            f"Il motore si ferma invece di restituire un valore terminale nullo o "
+            f"negativo, che sarebbe un numero plausibile e sbagliato"
+        )
+
     if inputs.sales_to_capital == 0:
         raise DcfError(
             "sales_to_capital a zero: il reinvestimento non e' definito. Se la "
@@ -442,8 +454,10 @@ def sensitivity(inputs: DcfInputs, wacc_list: list, g_list: list) -> list:
     base: cambiando il WACC cambiano anche i valori attuali dell'orizzonte
     esplicito, e cambiando g cambia il fattore (1 - g/ROIC).
 
-    Le celle in cui il WACC non supera g valgono `None`: li' non esiste un
-    numero, e scriverne uno sarebbe peggio che lasciare il buco.
+    Le celle in cui il modello non e' definito valgono `None`: li' non esiste un
+    numero, e scriverne uno sarebbe peggio che lasciare il buco. Sono i due casi
+    degeneri che `_valida` blocca — WACC che non supera g, e ROIC terminale che
+    non supera g — piu' qualunque altro errore di validazione.
     """
     matrice = []
     for w in wacc_list:

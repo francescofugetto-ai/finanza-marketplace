@@ -11,7 +11,7 @@ lo confronta, valore per valore, con i numeri pubblicati:
   2. i cinque aggregati                                  (tolleranza +/- 0,5 mln)
   3. il fair value per azione: 14,14                     (tolleranza +/- 0,01)
   4. tutte e venticinque le celle della sensibilita'     (tolleranza +/- 0,01)
-  5. i sette casi limite: errori espliciti dove non esiste un numero
+  5. i nove casi limite: errori espliciti dove non esiste un numero
 
 PERCHE' ESISTE
 --------------
@@ -277,6 +277,15 @@ def prova_casi_limite(p: Prova):
 
     errore_atteso("wacc < g_terminal -> errore esplicito",
                   lambda: run_dcf(input_base(wacc=2.0, g_terminal=3.0)))
+
+    # Stessa famiglia dei due precedenti, dall'altro lato della formula: qui il
+    # fattore (1 - g/ROIC) va a zero o sotto, e il valore terminale con lui. Il
+    # motore restituiva un numero plausibile e sbagliato; ora si ferma.
+    errore_atteso("roic_terminal = g_terminal -> errore esplicito",
+                  lambda: run_dcf(input_base(roic_terminal=3.0, g_terminal=3.0)))
+
+    errore_atteso("roic_terminal < g_terminal -> errore esplicito",
+                  lambda: run_dcf(input_base(roic_terminal=2.0, g_terminal=3.0)))
 
     errore_atteso("growth di lunghezza != 5 -> errore esplicito",
                   lambda: run_dcf(input_base(growth=[10.0, 10.0, 10.0])))
