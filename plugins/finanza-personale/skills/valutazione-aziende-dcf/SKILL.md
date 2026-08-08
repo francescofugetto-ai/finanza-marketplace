@@ -192,9 +192,11 @@ scenari affiancati.
 Poi il **record nel registro**, con `kb-registro`: azienda, ticker, esercizio di
 riferimento, prezzo con data e ora, modalità, ipotesi dei tre scenari, intervallo
 di fair value, frase del reverse DCF, allarmi, `ipotesi_valide_fino_a`, almeno un
-trigger con soglia e data, percorso del documento, e il campo `supera` che collega
-la valutazione precedente sulla stessa azienda. Formato e vincoli in
-`kb-registro/references/SCHEMA.md`.
+trigger con soglia e data, percorso del documento, e — se esiste una valutazione
+precedente sulla stessa azienda — `supersedes: ["<il suo id>"]`, che è il modo in
+cui il registro collega la catena. A `superato_da` sul record vecchio ci pensa
+`kb.py`: non si scrive a mano, e **non esiste nessun campo `supera`**. Formato e
+vincoli in `kb-registro/references/SCHEMA.md`.
 
 ## Il comando di manutenzione
 
@@ -239,7 +241,7 @@ Procedi solo se tutte le risposte sono «sì».
     titolo è la frase del reverse DCF?
 12. Il documento **non contiene** nessuna indicazione su pesi, ingressi o uscite?
 13. Il **record** è stato scritto, con `ipotesi_valide_fino_a`, almeno un trigger e
-    il campo `supera` se esiste una valutazione precedente?
+    `supersedes` sull'id della valutazione precedente, se ne esiste una?
 
 ## Errori da intercettare e segnalare
 
@@ -323,11 +325,13 @@ Procedi solo se tutte le risposte sono «sì».
   della sensibilità e i casi limite. **Se non passa, non si valuta niente.**
 - `scripts/scadenzario.py` — interroga il registro in **sola lettura** e classifica
   ogni azienda nei quattro stati, con il motivo in una riga. L'ultima valutazione è
-  l'ultima della catena costruita con `supera`, **non** la più recente per data.
-  Registro assente o illeggibile, `ipotesi_valide_fino_a` o `supera` mancanti,
-  catena rotta: **errore esplicito**, mai un elenco vuoto.
+  l'ultima della catena costruita con i campi di supersessione del registro,
+  `supersedes` e `superato_da`, **non** la più recente per data. Registro assente o
+  illeggibile, `ipotesi_valide_fino_a` o i campi di catena mancanti, catena rotta,
+  i due campi che si contraddicono: **errore esplicito**, mai un elenco vuoto.
 - `scripts/test_scadenzario.py` — prova di riferimento dello scadenzario: i quattro
-  stati, i bordi delle soglie, la catena di tre record, i campi malformati e la
-  prova che il registro resti byte per byte quello di prima. **70 controlli.**
+  stati, i bordi delle soglie, la catena di tre record, i campi malformati, le
+  contraddizioni fra i due campi di catena e la prova che il registro resti byte
+  per byte quello di prima. **80 controlli.**
 - `template-report.html` — nella cartella `assets/`. Le dodici sezioni del
   documento, parametro `registro` fra `interno` e `condiviso`.

@@ -34,9 +34,12 @@ Il registro ha una **lista chiusa di tipi** e `valutazione` non e' fra questi. U
 valutazione e' quindi un record `tipo: "dossier"` con `"valutazione"` fra i `tag`
 (vedi `08` §4 passo 8 e `kb-registro/references/SCHEMA.md`). Oltre ai campi dello
 schema porta i campi della valutazione — `azienda`, `ticker`, `isin`,
-`esercizio_di_riferimento`, `ipotesi_valide_fino_a`, `supera` — che lo schema
-**non valida**, perche' non li conosce. Li valida questo file, ed e' il motivo
-per cui la validazione qui e' severa: e' l'unico punto in cui viene fatta.
+`esercizio_di_riferimento`, `ipotesi_valide_fino_a` — che lo schema **non valida**,
+perche' non li conosce. Li valida questo file, ed e' il motivo per cui la
+validazione qui e' severa: e' l'unico punto in cui viene fatta.
+
+La catena, invece, **non e' un campo di questa skill**: e' il meccanismo di
+supersessione che il registro ha gia', scritto da `kb-registro/scripts/kb.py`.
 
 I QUATTRO MODI DI SBAGLIARE, E COME SONO CHIUSI
 -----------------------------------------------
@@ -49,11 +52,13 @@ I QUATTRO MODI DI SBAGLIARE, E COME SONO CHIUSI
      assente o malformata -> errore. E' il fallimento peggiore possibile, perche'
      mostrerebbe tutto come CORRENTE proprio quando non lo e'.
   3. **La piu' recente per data scambiata per l'ultima.** La catena si costruisce
-     seguendo `supera`, non ordinando per `data`. La differenza emerge quando si
-     recupera una valutazione arretrata: il record inserito dopo e' piu' recente
-     di calendario ma sta in mezzo alla catena, e non e' lui a valere.
+     seguendo `supersedes`/`superato_da`, non ordinando per `data`. La differenza
+     emerge quando si recupera una valutazione arretrata: il record inserito dopo
+     e' piu' recente di calendario ma sta in mezzo alla catena, e non e' lui a
+     valere.
   4. **Una catena rotta risolta a intuito.** Anello mancante, due teste, ciclo,
-     record orfano: nessuno di questi si indovina, tutti sollevano un errore.
+     record orfano, i due campi che si contraddicono: nessuno di questi si
+     indovina, tutti sollevano un errore.
 
 CONVENZIONI E LIMITI (dichiarati, non nascosti)
 -----------------------------------------------
@@ -67,10 +72,22 @@ CONVENZIONI E LIMITI (dichiarati, non nascosti)
   - Il confronto per azienda avviene su `azienda`, `ticker` e `isin`, ignorando
     maiuscole e spazi ai bordi. L'`isin` non e' nell'elenco del piano ma vale la
     stessa cosa: chi lo passa deve ottenere il record, non un MAI VALUTATA falso.
-  - La catena segue **solo** `supera`. I campi `supersedes` e `superato_da` dello
-    schema del registro non vengono letti: sono il meccanismo generale di
-    supersessione fra documenti, `supera` e' il collegamento fra valutazioni
-    della stessa azienda, e mescolarli darebbe due verita' sulla stessa catena.
+  - **La catena e' quella del registro, non una di questa skill.** Si legge dai
+    due campi che `kb.py` scrive e che tutto il resto del sistema gia' usa:
+    `supersedes` (lista di id, la dichiara il record nuovo, punta all'indietro) e
+    `superato_da` (id singolo o `null`, lo scrive `kb.py` sul record superato,
+    insieme a `stato: "superato"`). Sono valorizzati **nella stessa operazione**,
+    quindi devono concordare; se non concordano vedi il punto sotto. Un terzo
+    campo con la stessa semantica non esiste e non va introdotto: due verita'
+    sulla stessa catena falliscono nel modo peggiore, cioe' mostrando come
+    CORRENTE una valutazione superata.
+  - **I due campi che si contraddicono sono un registro rotto**, non un caso da
+    risolvere scegliendo il piu' convincente: errore esplicito, come per le altre
+    forme di catena rotta.
+  - Nella catena di un'azienda, `supersedes` di una valutazione elenca **solo**
+    valutazioni della stessa azienda, e **al massimo una**: e' la storia lineare
+    di quell'azienda. Un id fuori da quell'insieme, o due predecessori, fermano lo
+    scadenzario invece di far scegliere a lui quale ramo valga.
   - Il registro viene letto **una volta sola** per l'intero elenco di aziende.
   - Tutti i record di valutazione presenti vengono validati, non solo quelli
     delle aziende richieste. Limitare la validazione al sottoinsieme che combacia
@@ -100,7 +117,7 @@ from typing import Optional
 # ─── versione dello strumento ──────────────────────────────────────────────
 # Vera variabile di modulo, non una riga dentro il commento: un controllo
 # automatico deve poterla leggere da programma.
-SCADENZARIO_VERSIONE = "1.0"
+SCADENZARIO_VERSIONE = "1.1"
 
 # Soglie di default, in giorni. Estremi inclusi (vedi le convenzioni).
 SOGLIA_RIESAME = 90
@@ -119,6 +136,12 @@ CORRENTE = "CORRENTE"
 
 # Campi su cui si riconosce l'azienda richiesta.
 CAMPI_IDENTITA = ("azienda", "ticker", "isin")
+
+# I due campi della supersessione, come li scrive `kb-registro/scripts/kb.py`.
+# Stanno qui come costanti e non sparsi nel codice perche' sono di un altro
+# strumento: se un giorno cambiassero nome, cambia questa riga e nient'altro.
+CAMPO_INDIETRO = "supersedes"    # lista di id: quali record questo supera
+CAMPO_AVANTI = "superato_da"     # id singolo o null: quale record ha superato questo
 
 MESI = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
         "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre")
@@ -247,17 +270,69 @@ def _data_obbligatoria(rec: dict, campo: str, spiegazione: str) -> date:
         )
 
 
-def _valida_valutazione(rec: dict) -> None:
-    """I quattro requisiti di un record di valutazione, tutti obbligatori.
+def _valida_campi_di_catena(rec: dict) -> None:
+    """I due campi con cui il registro tiene la supersessione, come li scrive `kb.py`.
 
-    Lo schema del registro non li conosce e non li controlla: se non li controlla
-    questo file, non li controlla nessuno.
+    Non sono campi di questa skill: `supersedes` lo dichiara chi scrive il record
+    nuovo, `superato_da` lo valorizza `kb.py` sul record superato, nella stessa
+    operazione (`cmd_add`). Qui si controlla solo che ci siano e che abbiano la
+    forma giusta; che concordino fra loro e' un fatto della catena, e si verifica
+    in `ultima_della_catena`.
+
+    Devono esserci **entrambi**: `kb.py` li scrive sempre, anche vuoti, quindi un
+    record di valutazione che ne e' privo non e' passato di li'. Ammetterlo per
+    assenza significherebbe leggere «non lo so» come «non e' superato», che e' il
+    modo in cui una valutazione superata torna CORRENTE.
+    """
+    if CAMPO_INDIETRO not in rec:
+        raise ScadenzarioError(
+            f"{_etichetta(rec)}: manca il campo '{CAMPO_INDIETRO}'. E' il campo con cui "
+            f"il registro collega una valutazione alla precedente sulla stessa azienda: "
+            f"lista vuota se e' la prima, altrimenti l'id di quella che supera. Assente, "
+            f"non si distingue una prima valutazione da un anello di catena dimenticato"
+        )
+    indietro = rec[CAMPO_INDIETRO]
+    if not isinstance(indietro, list):
+        raise ScadenzarioError(
+            f"{_etichetta(rec)}: il campo '{CAMPO_INDIETRO}' vale {indietro!r}, che non e' "
+            f"una lista. Nel registro e' sempre una lista di id, anche quando ne contiene "
+            f"uno solo o nessuno"
+        )
+    for voce in indietro:
+        if not isinstance(voce, str) or not voce.strip():
+            raise ScadenzarioError(
+                f"{_etichetta(rec)}: '{CAMPO_INDIETRO}' contiene {voce!r}, che non e' l'id "
+                f"di un record"
+            )
+
+    if CAMPO_AVANTI not in rec:
+        raise ScadenzarioError(
+            f"{_etichetta(rec)}: manca il campo '{CAMPO_AVANTI}'. Lo valorizza il registro "
+            f"quando un'altra valutazione supera questa, e vale null finche' nessuna lo ha "
+            f"fatto: assente, una valutazione superata non si distingue da una corrente"
+        )
+    avanti = rec[CAMPO_AVANTI]
+    if avanti is not None and (not isinstance(avanti, str) or not avanti.strip()):
+        raise ScadenzarioError(
+            f"{_etichetta(rec)}: il campo '{CAMPO_AVANTI}' vale {avanti!r}. Ammessi solo "
+            f"null (nessuna valutazione successiva) o l'id di quella che la supera"
+        )
+
+
+def _valida_valutazione(rec: dict) -> None:
+    """I requisiti di un record di valutazione, tutti obbligatori.
+
+    Lo schema del registro non conosce i campi della valutazione e non li
+    controlla: se non li controlla questo file, non li controlla nessuno. I due
+    campi della catena li conosce invece eccome — sono suoi — ma nessuno verifica
+    che siano coerenti fra loro, e quello lo fa `ultima_della_catena`.
     """
     ident = rec.get("id")
     if not isinstance(ident, str) or not ident.strip():
         raise ScadenzarioError(
-            "un record di valutazione e' senza 'id': senza identificativo non puo' "
-            "stare in una catena, e il campo 'supera' degli altri non potrebbe puntarlo"
+            f"un record di valutazione e' senza 'id': senza identificativo non puo' "
+            f"stare in una catena, e il '{CAMPO_INDIETRO}' degli altri non potrebbe "
+            f"puntarlo"
         )
 
     _data_obbligatoria(rec, "data", "E' la data della valutazione, da cui si contano i giorni.")
@@ -269,19 +344,7 @@ def _valida_valutazione(rec: dict) -> None:
         "mostrare come buono un lavoro che non lo e' piu'."
     )
 
-    if "supera" not in rec:
-        raise ScadenzarioError(
-            f"{_etichetta(rec)}: manca il campo 'supera'. Deve esserci sempre, valorizzato "
-            f"con l'id della valutazione precedente sulla stessa azienda oppure a null se "
-            f"e' la prima: assente, non si distingue una prima valutazione da un anello "
-            f"di catena dimenticato"
-        )
-    supera = rec["supera"]
-    if supera is not None and (not isinstance(supera, str) or not supera.strip()):
-        raise ScadenzarioError(
-            f"{_etichetta(rec)}: il campo 'supera' vale {supera!r}. Ammessi solo null "
-            f"(prima valutazione) o l'id del record precedente"
-        )
+    _valida_campi_di_catena(rec)
 
     if not any(str(rec.get(c) or "").strip() for c in CAMPI_IDENTITA):
         raise ScadenzarioError(
@@ -325,15 +388,22 @@ def _identita(rec: dict) -> set:
 
 
 def ultima_della_catena(records: list) -> tuple:
-    """L'ultimo record della catena costruita seguendo `supera`, e la catena.
+    """L'ultimo record della catena di supersessione del registro, e la catena.
 
     Ritorna `(record, [id dal piu' vecchio al piu' recente])`.
 
     **Non e' il piu' recente per data, ed e' il punto di questa funzione.** La
-    testa della catena e' il record che nessun altro dichiara di superare. Se le
-    teste sono zero (la catena si chiude ad anello), piu' di una (due catene
-    scollegate), o se un anello punta a un id che non esiste, non c'e' un ultimo:
-    c'e' un registro incoerente, e si solleva un errore invece di scegliere.
+    catena e' quella che il registro tiene gia' con `supersedes` e `superato_da`,
+    scritti da `kb-registro/scripts/kb.py` nella stessa operazione: il record
+    nuovo dichiara `supersedes: ["<id del precedente>"]`, e `kb.py` scrive
+    `superato_da: "<id del nuovo>"` su quello vecchio. Qui si leggono **tutti e
+    due** e si pretende che dicano la stessa cosa.
+
+    La testa della catena e' il record che nessun altro supera. Se le teste sono
+    zero (la catena si chiude ad anello), piu' di una (due catene scollegate), se
+    un anello punta a un id che non esiste, se una valutazione ne supera due, o
+    se i due campi si contraddicono, non c'e' un ultimo: c'e' un registro
+    incoerente, e si solleva un errore invece di scegliere.
     """
     per_id = {r["id"]: r for r in records}
     if len(per_id) != len(records):
@@ -346,43 +416,99 @@ def ultima_della_catena(records: list) -> tuple:
             f"id duplicato fra le valutazioni della stessa azienda: {', '.join(sorted(doppi))}"
         )
 
-    superato_da = {}
+    # I due campi devono esserci e avere la forma giusta anche quando questa
+    # funzione viene chiamata da sola: e' pubblica, e non deve dipendere dal fatto
+    # che qualcun altro abbia gia' validato. Sui record che arrivano da
+    # `valutazioni()` il controllo e' gia' passato e qui ripassa a vuoto.
     for r in records:
-        precedente = r.get("supera")
-        if precedente is None:
-            continue
-        if precedente not in per_id:
-            raise ScadenzarioError(
-                f"record '{r['id']}': il campo 'supera' punta a '{precedente}', che fra le "
-                f"valutazioni di questa azienda non esiste. La catena e' rotta e l'ultima "
-                f"valutazione non e' determinabile"
-            )
-        if precedente in superato_da:
-            raise ScadenzarioError(
-                f"due record dichiarano di superare '{precedente}': '{superato_da[precedente]}' "
-                f"e '{r['id']}'. La catena si biforca e non esiste un ultimo anello"
-            )
-        superato_da[precedente] = r["id"]
+        _valida_campi_di_catena(r)
 
-    teste = [r for r in records if r["id"] not in superato_da]
+    # --- il verso all'indietro: chi dichiara di superare chi -----------------
+    dedotto = {}     # id superato -> id di chi lo supera, secondo `supersedes`
+    for r in records:
+        precedenti = r[CAMPO_INDIETRO]
+        for prec in precedenti:
+            if prec not in per_id:
+                raise ScadenzarioError(
+                    f"record '{r['id']}': '{CAMPO_INDIETRO}' punta a '{prec}', che fra le "
+                    f"valutazioni di questa azienda non esiste. La catena e' rotta e "
+                    f"l'ultima valutazione non e' determinabile"
+                )
+        if len(precedenti) > 1:
+            nomi = ", ".join(f"'{x}'" for x in precedenti)
+            raise ScadenzarioError(
+                f"record '{r['id']}': ne supera {len(precedenti)} sulla stessa azienda "
+                f"({nomi}). La storia di un'azienda e' una catena lineare: con due "
+                f"predecessori non esiste una catena sola, e non si sceglie quale valga"
+            )
+        for prec in precedenti:
+            if prec in dedotto:
+                raise ScadenzarioError(
+                    f"due record dichiarano di superare '{prec}': '{dedotto[prec]}' e "
+                    f"'{r['id']}'. La catena si biforca e non esiste un ultimo anello"
+                )
+            dedotto[prec] = r["id"]
+
+    # --- il verso in avanti: chi dichiara di essere stato superato -----------
+    dichiarato = {}  # id superato -> id di chi lo supera, secondo `superato_da`
+    for r in records:
+        successore = r[CAMPO_AVANTI]
+        if successore is None:
+            continue
+        if successore not in per_id:
+            raise ScadenzarioError(
+                f"record '{r['id']}': '{CAMPO_AVANTI}' vale '{successore}', che fra le "
+                f"valutazioni di questa azienda non esiste. La catena e' rotta: il "
+                f"record si dichiara superato da qualcosa che qui non c'e', e leggerlo "
+                f"come corrente sarebbe la lettura sbagliata"
+            )
+        dichiarato[r["id"]] = successore
+
+    # --- i due versi devono dire la stessa cosa ------------------------------
+    #
+    # `kb.py` li scrive nella stessa operazione (`cmd_add`): se discordano, il
+    # registro e' stato modificato fuori da li' e non si sa quale dei due valga.
+    # Sceglierne uno significa, una volta su due, mostrare come CORRENTE una
+    # valutazione superata — in silenzio.
+    for ident in sorted(set(dedotto) | set(dichiarato)):
+        a, b = dedotto.get(ident), dichiarato.get(ident)
+        if a == b:
+            continue
+        if b is None:
+            guasto = (f"'{a}' elenca '{ident}' fra i propri '{CAMPO_INDIETRO}', ma "
+                      f"'{ident}' non dichiara nessun '{CAMPO_AVANTI}'")
+        elif a is None:
+            guasto = (f"'{ident}' dichiara '{CAMPO_AVANTI}': '{b}', ma '{b}' non lo "
+                      f"elenca fra i propri '{CAMPO_INDIETRO}'")
+        else:
+            guasto = (f"'{ident}' dichiara di essere superato da '{b}', mentre a "
+                      f"superarlo con '{CAMPO_INDIETRO}' e' '{a}'")
+        raise ScadenzarioError(
+            f"i due campi di catena del registro si contraddicono: {guasto}. Il registro "
+            f"li scrive insieme, quindi qui e' stato modificato a mano: quale sia l'ultima "
+            f"valutazione non si sceglie a intuito"
+        )
+
+    teste = [r for r in records if r["id"] not in dedotto]
     if not teste:
         raise ScadenzarioError(
-            "nessuna valutazione senza successore: la catena costruita con 'supera' si "
-            "chiude ad anello. Non esiste un ultimo record"
+            f"nessuna valutazione senza successore: la catena costruita con "
+            f"'{CAMPO_INDIETRO}' si chiude ad anello. Non esiste un ultimo record"
         )
     if len(teste) > 1:
         nomi = ", ".join(sorted(f"'{t['id']}'" for t in teste))
         raise ScadenzarioError(
             f"per la stessa azienda ci sono {len(teste)} catene scollegate, con teste {nomi}. "
-            f"Manca un 'supera' fra loro, e quale sia l'ultima valutazione non si indovina"
+            f"Manca un '{CAMPO_INDIETRO}' fra loro, e quale sia l'ultima valutazione non si "
+            f"indovina"
         )
 
     testa = teste[0]
     catena, corrente = [], testa
     while corrente is not None:
         catena.append(corrente["id"])
-        precedente = corrente.get("supera")
-        corrente = per_id[precedente] if precedente else None
+        precedenti = corrente[CAMPO_INDIETRO]
+        corrente = per_id[precedenti[0]] if precedenti else None
 
     if len(catena) != len(records):
         fuori = sorted(set(per_id) - set(catena))

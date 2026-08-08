@@ -67,8 +67,12 @@ toccare ciò che si muove piano.
 > cosa è cambiato nelle ipotesi.**
 
 È l'append-only applicato al pensiero, e va rispettata anche quando è scomoda —
-specialmente quando è scomoda. Nel registro il collegamento lo tiene il campo
-`supera`, che punta al record precedente sulla stessa azienda.
+specialmente quando è scomoda. Nel registro il collegamento lo tiene il meccanismo
+di supersessione che il registro ha già: la valutazione nuova dichiara
+`supersedes: ["<id della precedente>"]`, e `kb.py` scrive `superato_da` sul record
+superato. **Non esiste un campo `supera`, e non va inventato:** un terzo campo con
+la stessa semantica terrebbe due verità sulla stessa catena, e la prima a cedere
+sarebbe quella che conta — una valutazione superata mostrata come `CORRENTE`.
 
 Fra due anni la cosa di valore non sarà il fair value. Sarà vedere che a gennaio
 si assumeva +15% e a dicembre +8%, e doversi spiegare perché.
@@ -276,18 +280,29 @@ riferimento usato, lo stato fra i quattro, e il **motivo dello stato in una riga
 
 **Dove le trova.** Una valutazione nel registro è un record `tipo: "dossier"` con
 `"valutazione"` fra i tag (passo 8). I campi propri della valutazione —
-`azienda`, `ticker`, `isin`, `esercizio_di_riferimento`, `ipotesi_valide_fino_a`,
-`supera` — lo schema del registro **non li conosce e non li valida**: li valida
-questo script, ed è il motivo per cui la validazione qui è severa. È l'unico posto
-in cui viene fatta.
+`azienda`, `ticker`, `isin`, `esercizio_di_riferimento`, `ipotesi_valide_fino_a`
+— lo schema del registro **non li conosce e non li valida**: li valida questo
+script, ed è il motivo per cui la validazione qui è severa. È l'unico posto in cui
+viene fatta.
 
 Quattro regole di comportamento, tutte pensate contro un errore specifico.
 
 **Vince l'ultima della catena, non la più recente per data.** Se un'azienda compare
-più volte nel registro, la catena si costruisce seguendo il campo `supera`. È
-diverso dall'ordinamento per data, e la differenza emerge quando un record vecchio
-viene inserito dopo — cosa che succede quando si recupera una valutazione
-arretrata.
+più volte nel registro, la catena si costruisce con i **campi di supersessione del
+registro**: `supersedes` (lista di id, la dichiara il record nuovo, punta
+all'indietro) e `superato_da` (id singolo o `null`, lo scrive `kb.py` sul record
+superato insieme a `stato: "superato"`). È diverso dall'ordinamento per data, e la
+differenza emerge quando un record vecchio viene inserito dopo — cosa che succede
+quando si recupera una valutazione arretrata.
+
+> **Non esiste un campo `supera`.** La catena delle valutazioni è la stessa catena
+> di supersessione di tutti gli altri documenti del registro, e si legge dai due
+> campi che `kb.py` già scrive. Un campo in più con la stessa semantica
+> significherebbe due verità sulla stessa catena, con nessuno a tenerle allineate.
+
+Nella catena di un'azienda, `supersedes` elenca **solo** valutazioni della stessa
+azienda, e **al massimo una**: la storia di un'azienda è lineare. Un id fuori da
+quell'insieme, o due predecessori, fermano lo scadenzario.
 
 **Registro illeggibile o percorso inesistente → errore esplicito.** Mai un elenco
 vuoto spacciato per «nessuna valutazione trovata». Sono due situazioni opposte:
@@ -295,29 +310,39 @@ una dice che non c'è niente da aggiornare, l'altra che non si sa niente. Per la
 stessa ragione un `MAI VALUTATA` dichiara nel motivo **quante** valutazioni il
 registro conteneva in tutto: zero letto è diverso da zero perché non si è letto.
 
-**`ipotesi_valide_fino_a` o `supera` mancanti o malformati → errore.** Una data di
-scadenza assente **non si legge mai come «nessuna scadenza»**: mostrerebbe tutto
-come `CORRENTE` proprio quando non lo è, ed è il modo peggiore in cui questo
-strumento possa sbagliare. `supera` dev'esserci sempre, valorizzato con l'id
-precedente o a `null` se è la prima valutazione: assente, non si distingue una
-prima valutazione da un anello dimenticato. Allo stesso modo si ferma su una
-catena rotta — anello che punta a un id inesistente, due catene scollegate sulla
-stessa azienda, due record che superano lo stesso record, catena chiusa ad anello:
-in nessuno di questi casi esiste un'ultima valutazione, e non la si indovina.
+**`ipotesi_valide_fino_a` o i campi di catena mancanti o malformati → errore.** Una
+data di scadenza assente **non si legge mai come «nessuna scadenza»**: mostrerebbe
+tutto come `CORRENTE` proprio quando non lo è, ed è il modo peggiore in cui questo
+strumento possa sbagliare. `supersedes` e `superato_da` devono esserci entrambi —
+`kb.py` li scrive sempre, anche vuoti, quindi un record che ne è privo non è
+passato di lì: assente, «non lo so» diventerebbe «non è superato». Allo stesso modo
+si ferma su una catena rotta — anello che punta a un id inesistente, `superato_da`
+che punta a un id inesistente, due catene scollegate sulla stessa azienda, due
+record che superano lo stesso record, una valutazione che ne supera due, catena
+chiusa ad anello: in nessuno di questi casi esiste un'ultima valutazione, e non la
+si indovina.
+
+**I due campi di catena che si contraddicono → errore.** `kb.py` li scrive nella
+stessa operazione, quindi discordano solo se il registro è stato modificato a mano.
+Le tre forme: A dice di essere superato da B ma B non elenca A; B elenca A ma A non
+dichiara nulla; i due indicano successori diversi. Fidarsi di uno dei due
+significherebbe, in metà dei casi, mostrare come `CORRENTE` una valutazione
+superata — in silenzio, che è esattamente ciò contro cui è scritto questo script.
 
 **Nessuna scrittura.** Lo script legge e basta. Il record del passo 8 lo scrive la
 skill attraverso il registro, non lo scadenzario.
 
-La prova di riferimento (`scripts/test_scadenzario.py`, **70 controlli**) verifica:
+La prova di riferimento (`scripts/test_scadenzario.py`, **80 controlli**) verifica:
 azienda mai valutata; valutazione di 30 giorni (`CORRENTE`); di 120 giorni
 (`DA RIESAMINARE`); di 400 giorni (`SCADUTA`); scaduta per
 `ipotesi_valide_fino_a` pur restando sotto i 365 giorni; catena di tre record
-collegati da `supera`, dove vince l'ultimo della catena e non il più recente per
-data; file inesistente → errore. Più i bordi delle due soglie giorno per giorno,
-i campi mancanti o malformati, le quattro forme di catena rotta, e la verifica che
-dopo l'esecuzione il registro sia **byte per byte** quello di prima. I registri di
-prova nascono dentro il test in una cartella temporanea: `kb-finanza/` non viene
-mai aperta, nemmeno in lettura.
+collegati da `supersedes`/`superato_da`, dove vince l'ultimo della catena e non il
+più recente per data; file inesistente → errore. Più i bordi delle due soglie
+giorno per giorno, i campi mancanti o malformati, le forme di catena rotta, le tre
+forme di contraddizione fra i due campi, e la verifica che dopo l'esecuzione il
+registro sia **byte per byte** quello di prima. I registri di prova nascono dentro
+il test in una cartella temporanea: `kb-finanza/` non viene mai aperta, nemmeno in
+lettura.
 
 ---
 

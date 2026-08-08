@@ -10,11 +10,12 @@ regole gia' decise:
 
   1. i quattro stati: mai valutata · 30 giorni · 120 giorni · 400 giorni
   2. scaduta per `ipotesi_valide_fino_a` pur restando sotto i 365 giorni
-  3. la catena di tre record collegati da `supera`, dove vince l'ultimo della
-     catena e NON il piu' recente per data
+  3. la catena di tre record collegati dai campi di supersessione del registro
+     (`supersedes` e `superato_da`), dove vince l'ultimo della catena e NON il
+     piu' recente per data
   4. i bordi delle due soglie, giorno per giorno
   5. gli errori espliciti: file inesistente, registro corrotto, campi mancanti o
-     malformati, catene rotte
+     malformati, catene rotte, e i due campi di catena che si contraddicono
   6. che lo script non scriva niente, da nessuna parte
 
 I DATI SONO COSTRUITI QUI DENTRO
@@ -27,7 +28,7 @@ sola lettura.
 PERCHE' ESISTE
 --------------
 Uno scadenzario sbagliato non si rompe: risponde CORRENTE. Un campo dimenticato,
-una catena letta per data invece che per `supera`, un registro che non si e'
+una catena letta per data invece che per supersessione, un registro che non si e'
 riusciti ad aprire — tutti e tre finiscono nello stesso modo, cioe' in un elenco
 di aziende che sembrano a posto. Questa prova esiste per rendere rumorosi quei
 tre silenzi.
@@ -142,10 +143,16 @@ def fra_giorni(quanti: int) -> str:
     return (OGGI + timedelta(days=quanti)).isoformat()
 
 
-def valutazione(ident, azienda, data, valide_fino_a, supera=None, ticker=None,
+def valutazione(ident, azienda, data, valide_fino_a, supersedes=None, ticker=None,
                 esercizio=2025, **extra):
     """Un record di valutazione come lo scrive la skill: `tipo: dossier` con il
-    tag `valutazione`, piu' i campi che lo schema del registro non conosce."""
+    tag `valutazione`, piu' i campi che lo schema del registro non conosce.
+
+    `supersedes` e `superato_da` sono invece campi del registro, non della skill:
+    qui il primo si passa, il secondo lo mette `collega()` — esattamente come nel
+    registro vero, dove il record nuovo dichiara chi supera e `kb.py` scrive il
+    verso opposto su quello vecchio.
+    """
     rec = {
         "id": ident,
         "data": data,
@@ -159,7 +166,7 @@ def valutazione(ident, azienda, data, valide_fino_a, supera=None, ticker=None,
         "classe": "time-sensitive",
         "scade": valide_fino_a,
         "stato": "vigente",
-        "supersedes": [],
+        "supersedes": list(supersedes or []),
         "superato_da": None,
         "vincoli": [],
         "trigger": [],
@@ -171,10 +178,29 @@ def valutazione(ident, azienda, data, valide_fino_a, supera=None, ticker=None,
         "ticker": ticker,
         "esercizio_di_riferimento": esercizio,
         "ipotesi_valide_fino_a": valide_fino_a,
-        "supera": supera,
     }
     rec.update(extra)
     return rec
+
+
+def collega(records):
+    """Chiude la catena come fa `kb.py` quando il record nuovo entra nel registro.
+
+    `kb.py` (`cmd_add`) scorre il `supersedes` del record che sta inserendo e su
+    ciascun record superato scrive `superato_da` e `stato: "superato"`. Qui si fa
+    la stessa cosa, e per la stessa ragione: una prova costruita con record che
+    non passerebbero mai da `kb.py` proverebbe qualcos'altro.
+
+    I casi che devono restare **incoerenti** non passano di qui: li costruiscono
+    a mano, ed e' il punto.
+    """
+    per_id = {r["id"]: r for r in records}
+    for r in records:
+        for prec in r["supersedes"]:
+            if prec in per_id:
+                per_id[prec]["superato_da"] = r["id"]
+                per_id[prec]["stato"] = "superato"
+    return records
 
 
 def rumore():
@@ -294,26 +320,28 @@ def prova_ipotesi_valide_fino_a(p, tmp: Path):
 # --------------------------------------------------------------------------- #
 
 def prova_catena(p, tmp: Path):
-    p.titolo("3 · LA CATENA DI TRE RECORD COLLEGATI DA `supera`")
+    p.titolo("3 · LA CATENA DI TRE RECORD, COSTRUITA COI CAMPI DEL REGISTRO")
 
     # Tre valutazioni della stessa azienda. L'ordine della catena e' A -> B -> C,
     # ma per DATA il piu' recente e' B: e' il caso del recupero di una valutazione
     # arretrata, inserita dopo ma piu' vecchia di quella che la supera.
     #
-    #   A  val-a   434 giorni fa   supera: null
-    #   B  val-b    19 giorni fa   supera: val-a     <- il piu' recente per data
-    #   C  val-c    99 giorni fa   supera: val-b     <- l'ultimo della catena
+    #   A  val-a   434 giorni fa   supersedes: []           superato_da: val-b
+    #   B  val-b    19 giorni fa   supersedes: [val-a]      superato_da: val-c
+    #                                                       <- il piu' recente per data
+    #   C  val-c    99 giorni fa   supersedes: [val-b]      superato_da: null
+    #                                                       <- l'ultimo della catena
     #
     # Gli stati sono scelti diversi apposta: leggere per data darebbe CORRENTE
     # (19 giorni), leggere la catena da' DA RIESAMINARE (99 giorni). Se la regola
     # fosse sbagliata, questo controllo non potrebbe passare per caso.
-    catena = [
+    catena = collega([
         valutazione("val-a", "Bending Spoons", giorni_fa(434), giorni_fa(69)),
         valutazione("val-b", "Bending Spoons", giorni_fa(19), fra_giorni(346),
-                    supera="val-a"),
+                    supersedes=["val-a"]),
         valutazione("val-c", "Bending Spoons", giorni_fa(99), fra_giorni(266),
-                    supera="val-b"),
-    ]
+                    supersedes=["val-b"]),
+    ])
     # Anche l'ordine delle righe nel file e' fuorviante di proposito: l'ultima
     # riga del file e' quella che NON deve vincere.
     registro = scrivi(tmp, "catena.jsonl", [catena[2], catena[0], catena[1]])
@@ -334,10 +362,22 @@ def prova_catena(p, tmp: Path):
     ultima, _ = ultima_della_catena(list(reversed(catena)))
     p.uguale("...e anche dall'ordine inverso", "val-c", ultima["id"])
 
+    # Le due direzioni sono entrambe lette: se lo scadenzario guardasse solo
+    # `supersedes`, un `superato_da` che nessuno conferma passerebbe inosservato.
+    p.afferma("i record di prova sono collegati in tutte e due le direzioni",
+              catena[0]["superato_da"] == "val-b"
+              and catena[1]["superato_da"] == "val-c"
+              and catena[2]["superato_da"] is None,
+              str([r["superato_da"] for r in catena]))
+    p.afferma("il record superato porta anche `stato: superato`, come lo scrive kb.py",
+              catena[0]["stato"] == "superato" and catena[2]["stato"] == "vigente",
+              str([r["stato"] for r in catena]))
+
     # Una sola valutazione e' una catena di uno.
-    registro = scrivi(tmp, "catena-uno.jsonl", [catena[0]])
+    registro = scrivi(tmp, "catena-uno.jsonl", [
+        valutazione("val-sola", "Bending Spoons", giorni_fa(434), fra_giorni(30))])
     e = uno(registro, "Bending Spoons")
-    p.uguale("una valutazione sola e' una catena di uno", ["val-a"], e.catena)
+    p.uguale("una valutazione sola e' una catena di uno", ["val-sola"], e.catena)
     p.afferma("con una sola valutazione il motivo non parla di catene",
               "catena" not in e.motivo, e.motivo)
 
@@ -425,18 +465,39 @@ def prova_errori(p, tmp: Path):
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
              "AAAA-MM-GG")
 
-    senza_supera = valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300))
-    del senza_supera["supera"]
-    r = scrivi(tmp, "senza-supera.jsonl", [senza_supera])
-    p.errore("`supera` mancante -> errore",
+    senza_supersedes = valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300))
+    del senza_supersedes["supersedes"]
+    r = scrivi(tmp, "senza-supersedes.jsonl", [senza_supersedes])
+    p.errore("`supersedes` mancante -> errore",
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
-             "supera")
+             "supersedes")
 
-    r = scrivi(tmp, "supera-malformato.jsonl", [
-        valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300), supera=7)])
-    p.errore("`supera` che non e' un id -> errore",
+    non_lista = valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300))
+    non_lista["supersedes"] = "val-0"
+    r = scrivi(tmp, "supersedes-non-lista.jsonl", [non_lista])
+    p.errore("`supersedes` che non e' una lista -> errore",
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
-             "supera")
+             "non e' una lista")
+
+    r = scrivi(tmp, "supersedes-malformato.jsonl", [
+        valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300), supersedes=[7])])
+    p.errore("`supersedes` che contiene qualcosa che non e' un id -> errore",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "non e' l'id di un record")
+
+    senza_superato_da = valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300))
+    del senza_superato_da["superato_da"]
+    r = scrivi(tmp, "senza-superato-da.jsonl", [senza_superato_da])
+    p.errore("`superato_da` mancante -> errore",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "superato_da")
+
+    superato_da_rotto = valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300))
+    superato_da_rotto["superato_da"] = 7
+    r = scrivi(tmp, "superato-da-malformato.jsonl", [superato_da_rotto])
+    p.errore("`superato_da` che non e' un id -> errore",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "superato_da")
 
     r = scrivi(tmp, "data-malformata.jsonl", [
         valutazione("val-1", "Alphabet", "2026-13-45", fra_giorni(300))])
@@ -461,8 +522,15 @@ def prova_errori(p, tmp: Path):
     # --- le catene rotte ----------------------------------------------------
     r = scrivi(tmp, "anello-mancante.jsonl", [
         valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300),
-                    supera="val-che-non-esiste")])
-    p.errore("`supera` che punta a un id inesistente -> errore",
+                    supersedes=["val-che-non-esiste"])])
+    p.errore("`supersedes` che punta a un id inesistente -> errore",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "catena e' rotta")
+
+    orfano = valutazione("val-1", "Alphabet", giorni_fa(30), fra_giorni(300))
+    orfano["superato_da"] = "val-che-non-esiste"
+    r = scrivi(tmp, "superato-da-nel-vuoto.jsonl", [orfano])
+    p.errore("`superato_da` che punta a un id inesistente -> errore, mai CORRENTE",
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
              "catena e' rotta")
 
@@ -473,20 +541,37 @@ def prova_errori(p, tmp: Path):
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
              "catene scollegate")
 
-    r = scrivi(tmp, "biforcazione.jsonl", [
+    # Biforcazione come la lascerebbe il registro: `kb.py` scrive `superato_da`
+    # sul superato ogni volta, quindi l'ultimo inserito sovrascrive il primo e
+    # resta una sola delle due dichiarazioni.
+    biforcata = [
         valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60)),
-        valutazione("val-2", "Alphabet", giorni_fa(60), fra_giorni(300), supera="val-1"),
-        valutazione("val-3", "Alphabet", giorni_fa(30), fra_giorni(300), supera="val-1")])
+        valutazione("val-2", "Alphabet", giorni_fa(60), fra_giorni(300), supersedes=["val-1"]),
+        valutazione("val-3", "Alphabet", giorni_fa(30), fra_giorni(300), supersedes=["val-1"]),
+    ]
+    biforcata[0]["superato_da"] = "val-3"
+    r = scrivi(tmp, "biforcazione.jsonl", biforcata)
     p.errore("due record che superano lo stesso record -> errore",
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
              "si biforca")
 
-    r = scrivi(tmp, "anello-chiuso.jsonl", [
-        valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60), supera="val-2"),
-        valutazione("val-2", "Alphabet", giorni_fa(30), fra_giorni(300), supera="val-1")])
+    r = scrivi(tmp, "anello-chiuso.jsonl", collega([
+        valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60),
+                    supersedes=["val-2"]),
+        valutazione("val-2", "Alphabet", giorni_fa(30), fra_giorni(300),
+                    supersedes=["val-1"])]))
     p.errore("catena che si chiude ad anello -> errore",
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
              "anello")
+
+    r = scrivi(tmp, "supersedes-doppio.jsonl", collega([
+        valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60)),
+        valutazione("val-2", "Alphabet", giorni_fa(200), fra_giorni(60)),
+        valutazione("val-3", "Alphabet", giorni_fa(30), fra_giorni(300),
+                    supersedes=["val-1", "val-2"])]))
+    p.errore("una valutazione che ne supera due sulla stessa azienda -> errore",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "catena lineare")
 
     r = scrivi(tmp, "id-duplicato.jsonl", [
         valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60)),
@@ -494,6 +579,40 @@ def prova_errori(p, tmp: Path):
     p.errore("id duplicato fra le valutazioni della stessa azienda -> errore",
              lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
              "id duplicato")
+
+    # --- i due campi di catena che si contraddicono -------------------------
+    #
+    # `kb.py` li scrive nella stessa operazione, quindi discordano solo se il
+    # registro e' stato toccato a mano. Il modo sbagliato di cavarsela sarebbe
+    # fidarsi di uno dei due: in meta' dei casi mostrerebbe come CORRENTE una
+    # valutazione superata, in silenzio. Sono le tre forme possibili.
+    r = scrivi(tmp, "incoerenza-solo-supersedes.jsonl", [
+        valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60)),
+        valutazione("val-2", "Alphabet", giorni_fa(30), fra_giorni(300),
+                    supersedes=["val-1"])])
+    p.errore("val-2 supera val-1 ma val-1 non lo dichiara -> errore, non CORRENTE su val-1",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "si contraddicono")
+
+    solo_avanti = valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60))
+    solo_avanti["superato_da"] = "val-2"
+    r = scrivi(tmp, "incoerenza-solo-superato-da.jsonl", [
+        solo_avanti,
+        valutazione("val-2", "Alphabet", giorni_fa(30), fra_giorni(300))])
+    p.errore("val-1 si dichiara superato da val-2 ma val-2 non lo elenca -> errore",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "si contraddicono")
+
+    discordi = valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60))
+    discordi["superato_da"] = "val-3"
+    r = scrivi(tmp, "incoerenza-discordi.jsonl", [
+        discordi,
+        valutazione("val-2", "Alphabet", giorni_fa(60), fra_giorni(300),
+                    supersedes=["val-1"]),
+        valutazione("val-3", "Alphabet", giorni_fa(30), fra_giorni(300))])
+    p.errore("i due campi indicano due successori diversi -> errore",
+             lambda: scadenzario(r, ["Alphabet"], oggi=OGGI),
+             "si contraddicono")
 
     # --- ingresso incoerente ------------------------------------------------
     buono = scrivi(tmp, "buono.jsonl", [
@@ -535,10 +654,11 @@ def prova_vuoto_e_sola_lettura(p, tmp: Path):
     # --- la prova che lo script non scrive ----------------------------------
     cartella = tmp / "sola-lettura"
     cartella.mkdir()
-    registro = scrivi(cartella, "ledger.jsonl", [
+    registro = scrivi(cartella, "ledger.jsonl", collega([
         valutazione("val-1", "Alphabet", giorni_fa(300), fra_giorni(60)),
-        valutazione("val-2", "Alphabet", giorni_fa(30), fra_giorni(300), supera="val-1"),
-    ])
+        valutazione("val-2", "Alphabet", giorni_fa(30), fra_giorni(300),
+                    supersedes=["val-1"]),
+    ]))
     prima_byte = registro.read_bytes()
     prima_mtime = registro.stat().st_mtime_ns
     prima_elenco = sorted(x.name for x in cartella.iterdir())
