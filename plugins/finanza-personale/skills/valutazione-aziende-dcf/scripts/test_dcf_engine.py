@@ -227,8 +227,11 @@ def prova_sensibilita(p: Prova):
 
     matrice = sensitivity(input_base(), WACC_LIST, G_LIST)
 
+    # Il backslash sta fuori dall'f-string: dentro e' illegale fino a Python 3.11.
+    intestazione = "WACC \\ g"
+
     print()
-    print(f"  {'WACC \\ g':<10}" + "".join(f"{g:>11.1f}%" for g in G_LIST))
+    print(f"  {intestazione:<10}" + "".join(f"{g:>11.1f}%" for g in G_LIST))
     print("  " + "-" * 70)
 
     for i, w in enumerate(WACC_LIST):
