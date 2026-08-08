@@ -321,8 +321,13 @@ Procedi solo se tutte le risposte sono «sì».
 - `scripts/test_dcf_engine.py` — prova di riferimento sul modello dell'episodio
   337: i valori annuali, gli aggregati, il fair value 14,14, tutte e 25 le celle
   della sensibilità e i casi limite. **Se non passa, non si valuta niente.**
-- `scadenzario.py` — nella cartella `scripts/`. Interroga il registro in sola
-  lettura e classifica ogni azienda nei quattro stati. Prova di riferimento in
-  `test_scadenzario.py`.
+- `scripts/scadenzario.py` — interroga il registro in **sola lettura** e classifica
+  ogni azienda nei quattro stati, con il motivo in una riga. L'ultima valutazione è
+  l'ultima della catena costruita con `supera`, **non** la più recente per data.
+  Registro assente o illeggibile, `ipotesi_valide_fino_a` o `supera` mancanti,
+  catena rotta: **errore esplicito**, mai un elenco vuoto.
+- `scripts/test_scadenzario.py` — prova di riferimento dello scadenzario: i quattro
+  stati, i bordi delle soglie, la catena di tre record, i campi malformati e la
+  prova che il registro resti byte per byte quello di prima. **70 controlli.**
 - `template-report.html` — nella cartella `assets/`. Le dodici sezioni del
   documento, parametro `registro` fra `interno` e `condiviso`.

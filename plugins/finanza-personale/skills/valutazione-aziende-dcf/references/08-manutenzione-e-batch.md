@@ -140,8 +140,8 @@ della skill: un buco dichiarato vale più di un numero plausibile.
 
 ### Passo 3 — Interroga il registro
 
-Con `scadenzario.py` (§6), una volta per l'intero elenco. Lo script legge il
-registro e non scrive nulla.
+Con `scripts/scadenzario.py` (§6), **una volta sola per l'intero elenco**. Lo
+script legge il registro e non scrive nulla.
 
 ### Passo 4 — Classifica in quattro stati
 
@@ -151,6 +151,19 @@ registro e non scrive nulla.
 | `SCADUTA` | oltre 12 mesi, o `ipotesi_valide_fino_a` superata, o evento maturato | in coda |
 | `DA RIESAMINARE` | oltre 90 giorni, entro i 12 mesi | riesame leggero, **ora** |
 | `CORRENTE` | entro i 90 giorni | riesame leggero, **ora** |
+
+**Due dei tre criteri di `SCADUTA` li decide lo script, il terzo no.** I 12 mesi e
+`ipotesi_valide_fino_a` sono date, e le confronta `scadenzario.py`. L'**evento
+maturato** — nuova annuale, acquisizione, guidance rivista, movimento del tasso
+privo di rischio — non sta nel registro e lo script non lo può sapere: lo accerta
+la skill al passo 5, e quando è maturato porta a `SCADUTA` un'azienda che lo
+script aveva dato per `CORRENTE`. Il declassamento si scrive con la ragione, come
+tutto il resto.
+
+Le due soglie sono a **estremi inclusi**: a 90 giorni esatti si è ancora
+`CORRENTE`, a 91 si passa a `DA RIESAMINARE`; a 365 esatti `DA RIESAMINARE`, a 366
+`SCADUTA`. `ipotesi_valide_fino_a` è l'**ultimo giorno valido**: quel giorno la
+valutazione regge ancora, dal successivo no.
 
 Ogni stato porta **una riga di motivo**. «`SCADUTA` — ultima valutazione 14 luglio
 2025, 390 giorni» è uno stato; «`SCADUTA`» da solo è un'etichetta.
@@ -243,16 +256,32 @@ intercetta.
 ## 6 · `scadenzario.py`
 
 Script deterministico, **sola lettura**, nessuna dipendenza esterna. Sta in
-`scripts/` accanto al motore e si invoca come gli altri script del sistema.
+`scripts/scadenzario.py`, accanto al motore, e si invoca come gli altri script del
+sistema:
 
-**Input:** percorso del registro, elenco di aziende o ticker, data odierna,
-soglie — di default **90 giorni** per il riesame e **365** per la scadenza piena.
+```
+python3 scadenzario.py --registro <KB_ROOT>/ledger.jsonl \
+                       --aziende "Alphabet" MSFT "Bending Spoons" \
+                       [--oggi AAAA-MM-GG] [--riesame 90] [--scadenza 365] [--json]
+```
+
+**Input:** percorso del registro, elenco di aziende — nome, ticker o ISIN
+indifferentemente, perché chi interroga per ISIN deve ottenere il record e non un
+`MAI VALUTATA` falso —, data odierna, soglie: di default **90 giorni** per il
+riesame e **365** per la scadenza piena.
 
 **Output**, per ciascuna azienda: ultima valutazione trovata con data e
 identificativo, giorni trascorsi, `ipotesi_valide_fino_a`, esercizio di
 riferimento usato, lo stato fra i quattro, e il **motivo dello stato in una riga**.
 
-Tre regole di comportamento, tutte e tre pensate contro un errore specifico.
+**Dove le trova.** Una valutazione nel registro è un record `tipo: "dossier"` con
+`"valutazione"` fra i tag (passo 8). I campi propri della valutazione —
+`azienda`, `ticker`, `isin`, `esercizio_di_riferimento`, `ipotesi_valide_fino_a`,
+`supera` — lo schema del registro **non li conosce e non li valida**: li valida
+questo script, ed è il motivo per cui la validazione qui è severa. È l'unico posto
+in cui viene fatta.
+
+Quattro regole di comportamento, tutte pensate contro un errore specifico.
 
 **Vince l'ultima della catena, non la più recente per data.** Se un'azienda compare
 più volte nel registro, la catena si costruisce seguendo il campo `supera`. È
@@ -262,16 +291,33 @@ arretrata.
 
 **Registro illeggibile o percorso inesistente → errore esplicito.** Mai un elenco
 vuoto spacciato per «nessuna valutazione trovata». Sono due situazioni opposte:
-una dice che non c'è niente da aggiornare, l'altra che non si sa niente.
+una dice che non c'è niente da aggiornare, l'altra che non si sa niente. Per la
+stessa ragione un `MAI VALUTATA` dichiara nel motivo **quante** valutazioni il
+registro conteneva in tutto: zero letto è diverso da zero perché non si è letto.
+
+**`ipotesi_valide_fino_a` o `supera` mancanti o malformati → errore.** Una data di
+scadenza assente **non si legge mai come «nessuna scadenza»**: mostrerebbe tutto
+come `CORRENTE` proprio quando non lo è, ed è il modo peggiore in cui questo
+strumento possa sbagliare. `supera` dev'esserci sempre, valorizzato con l'id
+precedente o a `null` se è la prima valutazione: assente, non si distingue una
+prima valutazione da un anello dimenticato. Allo stesso modo si ferma su una
+catena rotta — anello che punta a un id inesistente, due catene scollegate sulla
+stessa azienda, due record che superano lo stesso record, catena chiusa ad anello:
+in nessuno di questi casi esiste un'ultima valutazione, e non la si indovina.
 
 **Nessuna scrittura.** Lo script legge e basta. Il record del passo 8 lo scrive la
 skill attraverso il registro, non lo scadenzario.
 
-La prova di riferimento (`test_scadenzario.py`) verifica: azienda mai valutata;
-valutazione di 30 giorni (`CORRENTE`); di 120 giorni (`DA RIESAMINARE`); di 400
-giorni (`SCADUTA`); scaduta per `ipotesi_valide_fino_a` pur restando sotto i 365
-giorni; catena di tre record collegati da `supera`, dove vince l'ultimo della
-catena e non il più recente per data; file inesistente → errore.
+La prova di riferimento (`scripts/test_scadenzario.py`, **70 controlli**) verifica:
+azienda mai valutata; valutazione di 30 giorni (`CORRENTE`); di 120 giorni
+(`DA RIESAMINARE`); di 400 giorni (`SCADUTA`); scaduta per
+`ipotesi_valide_fino_a` pur restando sotto i 365 giorni; catena di tre record
+collegati da `supera`, dove vince l'ultimo della catena e non il più recente per
+data; file inesistente → errore. Più i bordi delle due soglie giorno per giorno,
+i campi mancanti o malformati, le quattro forme di catena rotta, e la verifica che
+dopo l'esecuzione il registro sia **byte per byte** quello di prima. I registri di
+prova nascono dentro il test in una cartella temporanea: `kb-finanza/` non viene
+mai aperta, nemmeno in lettura.
 
 ---
 
