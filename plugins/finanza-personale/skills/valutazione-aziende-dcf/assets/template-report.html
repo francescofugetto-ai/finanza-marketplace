@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Valutazione DCF — template</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+ template-report.html — il documento di una valutazione DCF.
+ Skill: valutazione-aziende-dcf. Motore: scripts/dcf_engine.py.
+
+ COME SI USA
+ -----------
+ 1. Si esegue `run_dcf` sui TRE scenari, `sensitivity` sullo scenario base e i
+    quattro risolutori inversi sullo scenario base.
+ 2. Si copia questo file nella cartella del documento e si sostituisce
+    INTERAMENTE l'oggetto `const D = {...}` in fondo con i valori ottenuti.
+    Nessun numero si scrive a mano: si trascrivono quelli del motore.
+ 3. Si mette `esempio: false`. Il banner dei dati di esempio sparisce.
+ 4. Si sceglie `registro`: "interno" oppure "condiviso".
+
+ IL PARAMETRO `registro` CAMBIA SOLO IL RENDERING, MAI IL CALCOLO
+ ----------------------------------------------------------------
+   interno    — fair value puntuale, ipotesi grezze, tutte e quattro le
+                risposte del reverse DCF. Titolo: azienda e data.
+   condiviso  — il fair value compare SOLO come intervallo dei tre scenari
+                affiancati (§6) e mai come cifra isolata altrove; delle ipotesi
+                restano le tre motivazioni, non i quindici campi; del reverse
+                DCF restano le prime due risposte. Titolo: la frase del
+                reverse DCF.
+ Restano in ENTRAMBI i registri, e la loro assenza e' un difetto del documento:
+ la matrice di sensibilita', tutti gli allarmi del motore, gli indicatori di
+ falsificazione, il ponte voce per voce, la chiusura fissa.
+
+ Per vedere l'altro rendering si cambia il campo `registro` e si ricarica: non
+ esiste un interruttore nella pagina e non esiste un parametro nell'indirizzo,
+ perche' il registro di un documento consegnato non deve poter essere cambiato
+ da chi lo riceve.
+
+ DIPENDENZE: il font Inter e Chart.js, entrambi da CDN. Nient'altro. Il design
+ system (variabili CSS, .stat-row, .cmp, i box con bordo sinistro, i 840px di
+ larghezza) e' quello dei report esistenti del sistema, ripreso identico.
+
+ DIVIETI DI LINGUAGGIO: references/06-verdetto-e-linguaggio.md §3 — nessun voto,
+ nessun obiettivo di prezzo, nessuna etichetta secca, nessun orizzonte
+ temporale, e la distanza dal prezzo si scrive «il prezzo sta N volte sopra lo
+ scenario base», mai come percentuale di rialzo o di ribasso.
+═══════════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#FAF9F7; --surface:#FFF; --surface-alt:#F3F2EF;
+    --border:rgba(11,11,11,.10); --border-strong:rgba(11,11,11,.18);
+    --text-primary:#0B0B0B; --text-secondary:#52514E; --text-muted:#898781;
+    --accent-blue:#2A78D6; --accent-blue-bg:#E6F1FB; --accent-blue-border:#B5D4F4;
+    --accent-amber:#BA7517; --accent-amber-bg:#FAEEDA; --accent-amber-border:#FAC775;
+    --accent-red:#A32D2D; --accent-red-bg:#FCEBEB; --accent-red-border:#F7C1C1;
+    --accent-green:#3B6D11; --accent-green-bg:#EAF3DE; --accent-green-border:#C0DD97;
+    --accent-purple:#534AB7; --accent-purple-bg:#EEEDFE; --accent-purple-border:#CECBF6;
+    --radius-md:10px; --radius-lg:14px;
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  body{font-family:var(--font);background:var(--bg);color:var(--text-primary);font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  .page{max-width:840px;margin:0 auto;padding:3rem 2rem 5rem}
+  .kicker{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+  .article-headline{font-size:26px;font-weight:500;line-height:1.25;margin-bottom:6px}
+  .article-sub{font-size:14px;color:var(--text-secondary);margin-bottom:2.5rem}
+  .section-label{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin:2.8rem 0 10px}
+  h2{font-size:17px;font-weight:500;margin:2.5rem 0 .5rem}
+  h3{font-size:14px;font-weight:500;margin:1.5rem 0 .4rem}
+  p{font-size:14px;line-height:1.75;margin-bottom:1rem}
+  hr{border:none;border-top:.5px solid var(--border-strong);margin:2rem 0}
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:1.2rem 0}
+  .stat{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-md);padding:.9rem 1rem}
+  .stat-lbl{font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+  .stat-val{font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+  .stat-note{font-size:11px;color:var(--text-muted);margin-top:3px}
+  .box-accent,.box-warn,.box-danger,.box-success,.box-purple{padding:14px 16px;margin:1.2rem 0;font-size:13px;line-height:1.65;border-left:3px solid}
+  .box-accent{background:var(--accent-blue-bg);border-color:var(--accent-blue-border)} .box-accent strong{color:var(--accent-blue);font-weight:500}
+  .box-warn{background:var(--accent-amber-bg);border-color:var(--accent-amber-border)} .box-warn strong{color:var(--accent-amber);font-weight:500}
+  .box-danger{background:var(--accent-red-bg);border-color:var(--accent-red-border)} .box-danger strong{color:var(--accent-red);font-weight:500}
+  .box-success{background:var(--accent-green-bg);border-color:var(--accent-green-border)} .box-success strong{color:var(--accent-green);font-weight:500}
+  .box-purple{background:var(--accent-purple-bg);border-color:var(--accent-purple-border)} .box-purple strong{color:var(--accent-purple);font-weight:500}
+  .cmp-table-wrap{overflow-x:auto;margin:1.2rem 0;border:.5px solid var(--border-strong);border-radius:var(--radius-md)}
+  table.cmp{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--surface)}
+  table.cmp th,table.cmp td{padding:9px 12px;text-align:left;border-bottom:.5px solid var(--border)}
+  table.cmp thead th{background:var(--surface-alt);font-weight:500;color:var(--text-secondary);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  table.cmp tbody tr:last-child td{border-bottom:none}
+  table.cmp td.metric{color:var(--text-secondary);font-weight:500}
+  table.cmp .num{font-variant-numeric:tabular-nums;text-align:right}
+  table.cmp tr.highlight td{background:var(--accent-blue-bg);font-weight:500}
+  .pill{display:inline-block;font-size:11px;font-weight:500;padding:2px 9px;border-radius:99px;margin-right:4px}
+  .pill-blue{background:var(--accent-blue-bg);color:#0C447C}
+  .pill-green{background:var(--accent-green-bg);color:var(--accent-green)}
+  .pill-amber{background:var(--accent-amber-bg);color:var(--accent-amber)}
+  .pill-red{background:var(--accent-red-bg);color:var(--accent-red)}
+  .pill-gray{background:#F1EFE8;color:#444441}
+  .chart-wrap{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.25rem;margin:1.5rem 0}
+  .chart-title{font-size:14px;font-weight:500;margin-bottom:4px}
+  .chart-sub{font-size:12px;color:var(--text-secondary);margin-bottom:1rem}
+  .chart-canvas-wrap{position:relative;width:100%;height:300px}
+  .waterfall{margin:1rem 0}
+  .wf-row{display:flex;align-items:center;gap:10px;margin:7px 0}
+  .wf-lbl{font-size:13px;color:var(--text-secondary);width:190px;flex-shrink:0}
+  .wf-track{flex:1;background:var(--surface-alt);border-radius:4px;height:24px;overflow:hidden}
+  .wf-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:12px;font-weight:500;color:#fff;white-space:nowrap}
+  .assumptions{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;margin:1.5rem 0}
+  .assumptions h3{margin-top:0}
+  .assumptions dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:12.5px}
+  .assumptions dt{color:var(--text-secondary);font-weight:500}
+  .assumptions dd{color:var(--text-primary)}
+  .footer-note{font-size:11px;color:var(--text-muted);margin-top:2rem;border-top:.5px solid var(--border-strong);padding-top:1rem;line-height:1.6}
+
+  /* ── aggiunte di questo report, costruite sulle stesse variabili ────────── */
+  /* cascata del ponte: il binario e il riempimento sono quelli di .waterfall,
+     con in piu' la colonna del cumulato, perche' una cascata senza il totale
+     progressivo non e' leggibile voce per voce. */
+  .wf-row.wf-tot .wf-lbl{color:var(--text-primary);font-weight:500}
+  .wf-amt{width:104px;flex-shrink:0;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+  .wf-cum{width:112px;flex-shrink:0;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;font-weight:500}
+  .wf-head{display:flex;gap:10px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px}
+  .wf-head .wf-lbl{color:var(--text-muted)}
+  .wf-zero{height:100%;width:2px;background:var(--border-strong)}
+  /* i tre scenari affiancati */
+  .scen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:10px;margin:1.2rem 0}
+  .scen{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-md);padding:.9rem 1rem;border-top:3px solid var(--border-strong)}
+  .scen-bear{border-top-color:var(--accent-amber-border)}
+  .scen-base{border-top-color:var(--accent-blue-border)}
+  .scen-bull{border-top-color:var(--accent-green-border)}
+  .scen-nome{font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:4px}
+  .scen-val{font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+  .scen-txt{font-size:11.5px;color:var(--text-muted);margin-top:6px;line-height:1.55}
+  /* fascia dell'intervallo, il solo modo in cui il fair value compare nel condiviso */
+  .range{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin:1.2rem 0}
+  .range-val{font-size:24px;font-weight:500;font-variant-numeric:tabular-nums}
+  .range-bar{position:relative;height:8px;border-radius:4px;margin:34px 0 26px;background:linear-gradient(90deg,var(--accent-amber-bg),var(--accent-blue-bg),var(--accent-green-bg));border:.5px solid var(--border)}
+  .range-tick{position:absolute;top:-5px;width:2px;height:18px;background:var(--text-primary)}
+  /* le etichette degli scenari stanno sotto la barra, quella del prezzo sopra:
+     non e' decorazione, e' l'unico modo perche' non si sovrappongano quando il
+     prezzo cade a ridosso di uno scenario. */
+  .range-tick span{position:absolute;top:20px;font-size:10.5px;color:var(--text-muted);white-space:nowrap}
+  .range-tick.tick-prezzo{background:var(--accent-red);height:22px;top:-7px}
+  .range-tick.tick-prezzo span{top:-22px;color:var(--accent-red);font-weight:500}
+  /* matrice di sensibilita': una sola cella evidenziata, non una riga */
+  table.cmp td.cell-base{background:var(--accent-blue-bg);font-weight:500;box-shadow:inset 0 0 0 1.5px var(--accent-blue-border)}
+  table.cmp td.cell-nulla{color:var(--text-muted)}
+  table.cmp th.rowhead{background:var(--surface-alt);font-weight:500;color:var(--text-secondary)}
+  .legenda{font-size:11.5px;color:var(--text-muted);margin-top:-.4rem}
+  @media (max-width:640px){
+    .wf-lbl{width:132px;font-size:12px}
+    .wf-amt,.wf-cum{width:82px;font-size:11.5px}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div id="banner-esempio"></div>
+
+<!-- ══════════ 0 · INTESTAZIONE ══════════ -->
+<div class="kicker" id="k-kicker"></div>
+<h1 class="article-headline" id="k-titolo"></h1>
+<p class="article-sub" id="k-sottotitolo"></p>
+<div class="stat-row" id="k-stats"></div>
+
+<!-- ══════════ 1 · IN UNA RIGA ══════════ -->
+<h2>1 · In una riga</h2>
+<div id="s1"></div>
+
+<!-- ══════════ 2 · COSA FA L'AZIENDA ══════════ -->
+<h2>2 · Cosa fa l'azienda</h2>
+<div id="s2"></div>
+
+<!-- ══════════ 3 · LE IPOTESI ══════════ -->
+<h2>3 · Le ipotesi</h2>
+<div id="s3"></div>
+
+<!-- ══════════ 4 · I FLUSSI ══════════ -->
+<h2>4 · I flussi</h2>
+<div id="s4"></div>
+
+<!-- ══════════ 5 · DAL VALORE ALL'AZIONE ══════════ -->
+<h2>5 · Dal valore all'azione</h2>
+<div id="s5"></div>
+
+<!-- ══════════ 6 · I TRE SCENARI ══════════ -->
+<h2>6 · I tre scenari</h2>
+<div id="s6"></div>
+
+<!-- ══════════ 7 · SENSIBILITÀ ══════════ -->
+<h2>7 · Sensibilità</h2>
+<div id="s7"></div>
+
+<!-- ══════════ 8 · REVERSE DCF ══════════ -->
+<h2>8 · Reverse DCF — cosa sta prezzando il mercato</h2>
+<div id="s8"></div>
+
+<!-- ══════════ 9 · ALLARMI ══════════ -->
+<h2>9 · Allarmi</h2>
+<div id="s9"></div>
+
+<!-- ══════════ 10 · COSA GUARDARE D'ORA IN POI ══════════ -->
+<h2>10 · Cosa guardare d'ora in poi</h2>
+<div id="s10"></div>
+
+<!-- ══════════ 11 · GLOSSARIO ══════════ -->
+<h2>11 · Glossario</h2>
+<div id="s11"></div>
+
+<div class="footer-note" id="chiusura"></div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   SOSTITUIRE INTERAMENTE QUESTO OGGETTO CON L'ESITO DI dcf_engine.py.
+   I valori qui sotto sono DATI DI ESEMPIO, dal caso Bending Spoons
+   dell'episodio 337 usato come prova di riferimento del motore: servono a
+   vedere se qualcosa non renderizza, non sono una valutazione.
+   Gli importi sono in milioni di valuta, le percentuali in punti percentuali.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const D = {
+
+  registro: "interno",          /* "interno" | "condiviso" */
+  esempio: true,                /* false su un documento vero: toglie il banner */
+
+  meta: {
+    data_documento: "7 agosto 2026",
+    modalita: "CAMPO",          /* "BANCO" | "CAMPO" — il prezzo viene dal web: CAMPO */
+    modalita_perche: "il prezzo e' ripreso dal book del broker, non dal connettore",
+    motore: "dcf_engine.py v1.0",
+    valuta: "USD",
+    unita: "milioni di dollari"
+  },
+
+  azienda: {
+    nome: "Bending Spoons",
+    ticker: "BEND",
+    borsa: "esempio — societa' del caso di riferimento TB-337",
+    esercizio: "esercizio 2025, chiuso al 31/12/2025",
+    fonte_bilancio: "relazione annuale 2025 (mai una trimestrale)",
+    cosa_fa: [
+      "Compra applicazioni e servizi digitali gia' avviati e ne rileva la gestione, invece di svilupparne di nuovi.",
+      "Il ricavo arriva da abbonamenti degli utenti finali, su un portafoglio di prodotti eterogenei acquisiti nel tempo.",
+      "La crescita del 106% dell'ultimo esercizio viene in larga parte dalle acquisizioni, non dalla base gia' posseduta."
+    ]
+  },
+
+  prezzo: { valore: 35.93, data: "7 agosto 2026", ora: "17:35 CEST",
+            fonte: "book del broker — ripreso al momento, non conservato" },
+
+  azioni_diluite: 630.0,
+
+  /* La frase del reverse DCF. Forma fissa: prezzo, data, «sta scontando»,
+     nessuna conclusione attaccata in coda. Nel registro condiviso e' il titolo. */
+  frase_reverse: "A 35,93 dollari, al 7 agosto 2026, il prezzo sta scontando ricavi in crescita del 58% l'anno per cinque anni — quasi dieci volte il fatturato attuale.",
+
+  /* Il termine di paragone e cio' che falsificherebbe l'ipotesi stanno nel §10:
+     il verdetto e' fatto di tre pezzi e questo e' il primo. */
+  paragone: "L'azienda e' cresciuta del 106% nell'ultimo esercizio, ma per acquisizione; il concorrente piu' grande del settore cresce intorno al 25%.",
+  categoria: "aspettative eroiche",
+  categoria_perche: "il risolutore del margine non trova soluzione entro il 60%: nessun livello di redditivita' plausibile, da solo, riporta il modello sul prezzo.",
+
+  base_key: "base",
+
+  scenari: [
+    {
+      key: "bear", nome: "Prudente", classe: "scen-bear",
+      motivazione: "Crescita 90% nel 2026 e in discesa al 6% nel 2030 · relazione annuale 2025 e nessuna nuova acquisizione ipotizzata · senza operazioni straordinarie resta la sola crescita della base gia' posseduta, e il capitale che la finanzia rende meno (sales-to-capital 2,5).",
+      ipotesi: { growth: [90,22,15,10,6], margin: [22,24,25,26,26],
+                 wacc: 11.0, g: 2.5, roic: 18.0, s2c: 2.5 },
+      fv: 3.9311,
+      pv_explicit: 1314.2, tv: 8024.9, pv_tv: 4762.4, ev: 6076.6, eq: 2476.6,
+      quota_tv: 78.37,
+      years: [
+        { anno: 2026, revenue: 2489.0, ebit: 547.6, nopat: 399.7, reinv: 471.6, fcff: -71.9, df: 1.1100, pv: -64.7 },
+        { anno: 2027, revenue: 3036.6, ebit: 728.8, nopat: 532.0, reinv: 219.0, fcff: 313.0, df: 1.2321, pv: 254.0 },
+        { anno: 2028, revenue: 3492.1, ebit: 873.0, nopat: 637.3, reinv: 182.2, fcff: 455.1, df: 1.3676, pv: 332.8 },
+        { anno: 2029, revenue: 3841.3, ebit: 998.7, nopat: 729.1, reinv: 139.7, fcff: 589.4, df: 1.5181, pv: 388.3 },
+        { anno: 2030, revenue: 4071.8, ebit: 1058.7, nopat: 772.8, reinv: 92.2, fcff: 680.6, df: 1.6851, pv: 403.9 }
+      ],
+      bridge: [
+        { voce: "Enterprise Value", importo: 6076.6, cumulato: 6076.6 },
+        { voce: "+ cassa e titoli negoziabili", importo: 0.0, cumulato: 6076.6 },
+        { voce: "+ partecipazioni non consolidate", importo: 0.0, cumulato: 6076.6 },
+        { voce: "− debito finanziario totale", importo: -3600.0, cumulato: 2476.6 },
+        { voce: "− passività per leasing", importo: 0.0, cumulato: 2476.6 },
+        { voce: "− deficit pensionistico (netto d'imposta)", importo: 0.0, cumulato: 2476.6 },
+        { voce: "− interessi di minoranza", importo: 0.0, cumulato: 2476.6 },
+        { voce: "− valore delle opzioni ai dipendenti", importo: 0.0, cumulato: 2476.6 }
+      ],
+      alarms: [], notes: []
+    },
+    {
+      key: "base", nome: "Base", classe: "scen-base",
+      motivazione: "Crescita 106% nel 2026 e 12% nel 2030, margine EBIT dal 22% al 33% · percorso dell'episodio 337 sui dati della relazione annuale 2025 · le acquisizioni gia' annunciate reggono il primo anno, poi la crescita rientra e la scala porta il margine verso quello del concorrente piu' redditizio.",
+      ipotesi: { growth: [106,30,22,16,12], margin: [22,26,29,31,33],
+                 wacc: 10.0, g: 3.0, roic: 20.0, s2c: 3.0 },
+      fv: 14.1438,
+      pv_explicit: 2107.8, tv: 16753.8, pv_tv: 10402.8, ev: 12510.6, eq: 8910.6,
+      quota_tv: 83.15,
+      years: [
+        { anno: 2026, revenue: 2698.6, ebit: 593.7, nopat: 433.4, reinv: 462.9, fcff: -29.5, df: 1.1000, pv: -26.8 },
+        { anno: 2027, revenue: 3508.2, ebit: 912.1, nopat: 665.9, reinv: 269.9, fcff: 396.0, df: 1.2100, pv: 327.3 },
+        { anno: 2028, revenue: 4280.0, ebit: 1241.2, nopat: 906.1, reinv: 257.3, fcff: 648.8, df: 1.3310, pv: 487.5 },
+        { anno: 2029, revenue: 4964.8, ebit: 1539.1, nopat: 1123.5, reinv: 228.3, fcff: 895.3, df: 1.4641, pv: 611.5 },
+        { anno: 2030, revenue: 5560.5, ebit: 1835.0, nopat: 1339.5, reinv: 198.6, fcff: 1140.9, df: 1.6105, pv: 708.4 }
+      ],
+      bridge: [
+        { voce: "Enterprise Value", importo: 12510.6, cumulato: 12510.6 },
+        { voce: "+ cassa e titoli negoziabili", importo: 0.0, cumulato: 12510.6 },
+        { voce: "+ partecipazioni non consolidate", importo: 0.0, cumulato: 12510.6 },
+        { voce: "− debito finanziario totale", importo: -3600.0, cumulato: 8910.6 },
+        { voce: "− passività per leasing", importo: 0.0, cumulato: 8910.6 },
+        { voce: "− deficit pensionistico (netto d'imposta)", importo: 0.0, cumulato: 8910.6 },
+        { voce: "− interessi di minoranza", importo: 0.0, cumulato: 8910.6 },
+        { voce: "− valore delle opzioni ai dipendenti", importo: 0.0, cumulato: 8910.6 }
+      ],
+      alarms: [], notes: []
+    },
+    {
+      key: "bull", nome: "Favorevole", classe: "scen-bull",
+      motivazione: "Crescita 106% nel 2026 e 16% nel 2030, margine EBIT fino al 37%, ROIC a regime 30% · limite superiore osservato fra i concorrenti quotati del settore · l'integrazione delle applicazioni acquisite riesce e il costo di gestione cresce meno dei ricavi, con un costo del capitale piu' basso (8,5%) per un rischio percepito in calo.",
+      ipotesi: { growth: [106,35,28,22,16], margin: [22,28,32,35,37],
+                 wacc: 8.5, g: 4.0, roic: 30.0, s2c: 3.0 },
+      fv: 36.2763,
+      pv_explicit: 2710.3, tv: 35702.4, pv_tv: 23743.7, ev: 26454.0, eq: 22854.0,
+      quota_tv: 89.75,
+      years: [
+        { anno: 2026, revenue: 2698.6, ebit: 593.7, nopat: 433.4, reinv: 462.9, fcff: -29.5, df: 1.0850, pv: -27.2 },
+        { anno: 2027, revenue: 3643.1, ebit: 1020.1, nopat: 744.7, reinv: 314.8, fcff: 429.8, df: 1.1772, pv: 365.1 },
+        { anno: 2028, revenue: 4663.2, ebit: 1492.2, nopat: 1089.3, reinv: 340.0, fcff: 749.3, df: 1.2773, pv: 586.6 },
+        { anno: 2029, revenue: 5689.1, ebit: 1991.2, nopat: 1453.6, reinv: 342.0, fcff: 1111.6, df: 1.3859, pv: 802.1 },
+        { anno: 2030, revenue: 6599.3, ebit: 2441.8, nopat: 1782.5, reinv: 303.4, fcff: 1479.1, df: 1.5037, pv: 983.6 }
+      ],
+      bridge: [
+        { voce: "Enterprise Value", importo: 26454.0, cumulato: 26454.0 },
+        { voce: "+ cassa e titoli negoziabili", importo: 0.0, cumulato: 26454.0 },
+        { voce: "+ partecipazioni non consolidate", importo: 0.0, cumulato: 26454.0 },
+        { voce: "− debito finanziario totale", importo: -3600.0, cumulato: 22854.0 },
+        { voce: "− passività per leasing", importo: 0.0, cumulato: 22854.0 },
+        { voce: "− deficit pensionistico (netto d'imposta)", importo: 0.0, cumulato: 22854.0 },
+        { voce: "− interessi di minoranza", importo: 0.0, cumulato: 22854.0 },
+        { voce: "− valore delle opzioni ai dipendenti", importo: 0.0, cumulato: 22854.0 }
+      ],
+      alarms: ["TV_DOMINANTE"],
+      notes: ["il valore terminale pesa il 89,8% dell'Enterprise Value (soglia 85%): la valutazione dipende quasi tutta da cio' che accade dopo l'orizzonte esplicito, non dalle ipotesi dei cinque anni"]
+    }
+  ],
+
+  /* Input del ponte, per la nota sotto la cascata. */
+  ponte_note: "Principio contabile dichiarato: US GAAP. Le passività per leasing restano a zero e non si sottraggono: in US GAAP il costo del leasing operativo e' gia' dentro l'EBIT, e sottrarlo di nuovo sarebbe un doppio conteggio. Il debito e' la sola voce valorizzata del ponte.",
+
+  /* sensitivity(inputs, wacc_list, g_list) sullo scenario base. */
+  sensibilita: {
+    wacc: [8, 9, 10, 11, 12],
+    g: [2, 2.5, 3, 4, 5],
+    celle: [
+      [20.02, 21.47, 23.21, 27.98, 35.86],
+      [15.87, 16.82, 17.92, 20.75, 24.96],
+      [12.78, 13.42, 14.14, 15.94, 18.43],
+      [10.39, 10.83, 11.33, 12.52, 14.08],
+      [8.48, 8.80, 9.15, 9.96, 10.98]
+    ],
+    riga_base: 2, colonna_base: 2
+  },
+
+  /* I quattro risolutori, nell'ordine in cui si leggono. `valore: null` non e'
+     un buco: e' un risultato, e il motivo del motore va riportato tale e quale. */
+  reverse: [
+    { variabile: "Crescita dei ricavi", domanda: "quanto deve crescere il fatturato",
+      modello: "106 · 30 · 22 · 16 · 12 %", valore: 57.9672, unita: "% l'anno, uniforme sui cinque anni",
+      lettura: "Il 57,97% composto porta i ricavi da 1.310 a 12.886 milioni in cinque anni: quasi dieci volte, contro le 4,2 volte dello scenario base." },
+    { variabile: "Margine EBIT al quinto anno", domanda: "quanto deve diventare redditizia",
+      modello: "33%", valore: null, unita: "%",
+      motivo: "nessuna soluzione fra 0 e 60. Su tutto l'intervallo plausibile il fair value resta sotto il prezzo di mercato, quindi il prezzo non sta scontando un valore credibile di questa variabile",
+      lettura: "Portando il margine del quinto anno al 60% — un livello che quasi nessuna azienda al mondo sostiene — il modello arriva a 30,13, ancora sotto il prezzo. La redditivita', da sola, non basta." },
+    { variabile: "Crescita perpetua", domanda: "quanto deve durare il vantaggio",
+      modello: "3,0%", valore: 7.7200, unita: "%",
+      lettura: "Il 7,72% supera il tasso privo di rischio in dollari (4,30%). Un'azienda che cresce cosi' per sempre finisce per coincidere con l'economia in cui vive." },
+    { variabile: "Costo del capitale", domanda: "che rendimento sta chiedendo chi compra oggi",
+      modello: "10,0%", valore: 6.5755, unita: "%",
+      lettura: "Il 6,58% e' il rendimento che chi compra a 35,93 sta implicitamente accettando per il rischio di questa azienda." }
+  ],
+  reverse_avvertenza: "I quattro numeri non si sommano e non si combinano: ognuno risponde a «se questa fosse l'unica cosa a cambiare». Sono quattro letture della stessa distanza, non quattro conferme indipendenti.",
+
+  /* Tutti e cinque i controlli del motore, con il loro stato. Un allarme taciuto
+     e' un difetto del documento; un controllo che non ha potuto girare va detto. */
+  allarmi: [
+    { sigla: "TV_DOMINANTE", stato: "emesso",
+      dove: "scenario favorevole",
+      testo: "il valore terminale pesa l'89,8% dell'Enterprise Value (soglia 85%): li' la valutazione dipende quasi tutta da cio' che accade dopo il 2030. Nello scenario base pesa l'83,2%, appena sotto la soglia — e nel prudente il 78,4%." },
+    { sigla: "SBC_ELEVATA", stato: "non valutabile",
+      dove: "tutti gli scenari",
+      testo: "il campo <code>sbc</code> non e' stato valorizzato, quindi il controllo non ha potuto girare. Il silenzio non e' un'assoluzione: finche' il compenso in azioni non viene letto dalla relazione annuale, questo allarme non puo' scattare." },
+    { sigla: "G_SOPRA_RISK_FREE", stato: "non emesso",
+      dove: "tutti gli scenari",
+      testo: "la crescita perpetua piu' alta usata e' il 4,0% dello scenario favorevole, sotto il tasso privo di rischio dichiarato (4,30% sul Treasury a 10 anni, nella valuta dei flussi)." },
+    { sigla: "CASSA_NETTA", stato: "non emesso",
+      dove: "tutti gli scenari",
+      testo: "il ponte e' negativo netto: 3.600 milioni di debito finanziario e nessuna cassa dichiarata." },
+    { sigla: "PARTECIPAZIONI_RILEVANTI", stato: "non emesso",
+      dove: "tutti gli scenari",
+      testo: "nessuna partecipazione non consolidata iscritta." }
+  ],
+
+  /* Due o tre indicatori, con la soglia. Senza questi il documento e' una
+     posizione, non un'analisi: fra sei mesi non c'e' modo di sapere se reggeva. */
+  indicatori: [
+    { cosa: "Crescita organica dei ricavi", soglia: "sotto il 25% anno su anno, al netto delle acquisizioni, nelle prossime due trimestrali",
+      perche: "lo scenario base chiede il 30% nel 2027 senza nuove operazioni: sotto il 25% organico quel percorso non regge." },
+    { cosa: "Margine EBIT reported", soglia: "sotto il 22% mentre i ricavi salgono",
+      perche: "il percorso dal 22% al 33% assume che la scala riduca il costo di gestione: un margine che scende con i ricavi in salita falsifica proprio quel meccanismo." },
+    { cosa: "Debito finanziario totale", soglia: "sopra 4.500 milioni",
+      perche: "una nuova acquisizione a debito sposta il ponte prima ancora che i flussi cambino, e il ponte entra intero nel valore per azione." }
+  ],
+
+  glossario: [
+    { t: "DCF", d: "flussi di cassa scontati: si stima la cassa che l'impresa produrra' e la si riporta a oggi con un tasso." },
+    { t: "EBIT", d: "risultato operativo come lo scrive il bilancio, prima di interessi e imposte. Si parte da qui, mai da EBITDA o da metriche adjusted." },
+    { t: "NOPAT", d: "EBIT al netto delle imposte figurative: quanto resterebbe dell'operativo se l'impresa non avesse debito." },
+    { t: "Reinvestimento", d: "il capitale che la crescita richiede, ricavato dai ricavi incrementali diviso il sales-to-capital." },
+    { t: "FCFF", d: "flusso di cassa disponibile per l'impresa: NOPAT meno reinvestimento. E' cio' che si sconta." },
+    { t: "Sales-to-capital", d: "quanti euro di ricavi in piu' produce un euro di capitale investito in piu'. Piu' e' alto, meno costa crescere." },
+    { t: "WACC", d: "costo medio ponderato del capitale: il rendimento che chi finanzia l'impresa pretende. E' la leva a cui il risultato e' piu' sensibile." },
+    { t: "Fattore di sconto", d: "(1 + WACC) elevato all'anno: divide il flusso per riportarlo a oggi." },
+    { t: "Valore terminale", d: "il valore di tutti i flussi dal sesto anno in avanti, condensato in un numero al termine dell'orizzonte esplicito." },
+    { t: "Crescita perpetua (g)", d: "il ritmo a cui i flussi crescono per sempre dopo l'orizzonte. Deve stare sotto il tasso privo di rischio." },
+    { t: "ROIC a regime", d: "il rendimento del capitale investito una volta che la crescita rapida e' finita. Entra nel fattore (1 − g/ROIC), che dice quanta parte del profitto non va reinvestita." },
+    { t: "Enterprise Value", d: "il valore dell'attivita' operativa, prima di sapere chi se lo divide fra creditori e azionisti." },
+    { t: "Ponte verso l'equity", d: "la cascata che dall'Enterprise Value arriva al valore dell'azionista: si aggiunge la cassa, si toglie il debito e le altre pretese." },
+    { t: "Azioni diluite", d: "tutte le azioni che esisterebbero se le opzioni e i piani in essere venissero esercitati. Si usano queste, mai le azioni base." },
+    { t: "Fair value per azione", d: "il valore dell'equity diviso le azioni diluite, con le ipotesi dichiarate. Cambiando le ipotesi cambia: non e' una proprieta' dell'azienda." },
+    { t: "Matrice di sensibilita'", d: "il fair value ricalcolato da capo per ogni combinazione di WACC e crescita perpetua. Serve a vedere quanto poco basta per spostarlo." },
+    { t: "Reverse DCF", d: "il modello letto al contrario: si prende il prezzo come dato e si cerca quale ipotesi lo renderebbe corretto." },
+    { t: "CAMPO / BANCO", d: "CAMPO: dato ripreso dal web al momento, non conservato. BANCO: dato dal connettore, con la sua data. Il prezzo e' sempre CAMPO." }
+  ],
+
+  chiusura_metodo: "Metodo: flussi di cassa scontati su un orizzonte esplicito di cinque anni, reinvestimento derivato dai ricavi incrementali, valore terminale con la formula di Gordon corretta per il ROIC, ponte verso l'equity voce per voce. Aritmetica di scripts/dcf_engine.py; nessun numero di questo documento e' stato calcolato a mano."
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Da qui in giu' non si tocca niente per produrre un documento: si cambia solo
+   l'oggetto D qui sopra.
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  const el = id => document.getElementById(id);
+  const COND = D.registro === "condiviso";
+  const INT  = !COND;
+
+  const nf = (v, d) => v === null || v === undefined
+      ? "n/d"
+      : v.toLocaleString("it-IT", { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: true });
+  const mln = v => nf(v, 1);
+  const den = v => nf(v, 2);
+  const pc  = (v, d) => v === null || v === undefined ? "n/d" : nf(v, d === undefined ? 2 : d) + "%";
+
+  const S    = Object.fromEntries(D.scenari.map(s => [s.key, s]));
+  const BASE = S[D.base_key];
+  const ORD  = D.scenari;                       /* gia' in ordine prudente → favorevole */
+  const fvs  = ORD.map(s => s.fv);
+  const FV_MIN = Math.min(...fvs), FV_MAX = Math.max(...fvs);
+  const PREZZO = D.prezzo.valore;
+  const VOLTE  = PREZZO / BASE.fv;              /* «il prezzo sta N volte sopra/sotto lo
+                                                   scenario base» — mai una percentuale */
+  const versoBase = VOLTE >= 1
+    ? `il prezzo sta ${den(VOLTE)} volte sopra lo scenario base`
+    : `il prezzo sta a ${den(VOLTE)} volte lo scenario base, cioe' sotto`;
+
+  /* ── banner dei dati di esempio ─────────────────────────────────────────── */
+  el("banner-esempio").innerHTML = D.esempio
+    ? `<div class="box-danger"><strong>Dati di esempio, non una valutazione.</strong>
+       Questo file e' il template della skill <code>valutazione-aziende-dcf</code>, popolato con il
+       caso ${D.azienda.nome} dell'episodio 337 usato come prova di riferimento del motore: serve a
+       verificare che ogni sezione renderizzi. Le ipotesi degli scenari prudente e favorevole sono
+       ricostruite per la prova; il tasso privo di rischio e il campo <code>sbc</code> non provengono
+       dall'episodio. Su un documento vero si sostituisce l'oggetto <code>D</code> e si mette
+       <code>esempio: false</code>.</div>`
+    : "";
+
+  /* ── 0 · intestazione ───────────────────────────────────────────────────── */
+  const badgeMod = `<span class="pill ${D.meta.modalita === "CAMPO" ? "pill-amber" : "pill-blue"}">${D.meta.modalita}</span>`;
+  el("k-kicker").innerHTML =
+    `Valutazione DCF · ${D.azienda.nome}${D.azienda.ticker ? " — " + D.azienda.ticker : ""} · ${D.meta.data_documento} · ${badgeMod}`;
+
+  document.title = COND
+    ? D.frase_reverse
+    : `Valutazione DCF — ${D.azienda.nome}, ${D.meta.data_documento}`;
+
+  el("k-titolo").textContent = COND
+    ? D.frase_reverse
+    : `${D.azienda.nome} — che cosa si sta comprando a questo prezzo`;
+
+  el("k-sottotitolo").innerHTML = COND
+    ? `${D.azienda.nome}${D.azienda.ticker ? " (" + D.azienda.ticker + ")" : ""} · ${D.azienda.esercizio} · prezzo ${den(PREZZO)} ${D.meta.valuta} del ${D.prezzo.data}, ore ${D.prezzo.ora}, modalita' ${D.meta.modalita} (${D.meta.modalita_perche}). <strong>Il documento descrive il prezzo, non l'azienda, e non contiene indicazioni operative.</strong>`
+    : `${D.azienda.esercizio} · fonte: ${D.azienda.fonte_bilancio} · calcolo con ${D.meta.motore} · importi in ${D.meta.unita}. Il prezzo e' <strong>${D.meta.modalita}</strong>: ${D.meta.modalita_perche}.`;
+
+  const statFV = INT
+    ? `<div class="stat"><div class="stat-lbl">Fair value, scenario base</div><div class="stat-val">${den(BASE.fv)}</div><div class="stat-note">con le ipotesi del §3, non una proprieta' dell'azienda</div></div>`
+    : `<div class="stat"><div class="stat-lbl">Intervallo dei tre scenari</div><div class="stat-val">${den(FV_MIN)}–${den(FV_MAX)}</div><div class="stat-note">voci per esteso al §6</div></div>`;
+
+  el("k-stats").innerHTML = `
+    <div class="stat"><div class="stat-lbl">Prezzo di mercato</div><div class="stat-val">${den(PREZZO)}</div><div class="stat-note">${D.prezzo.data}, ore ${D.prezzo.ora} · ${D.prezzo.fonte}</div></div>
+    ${statFV}
+    <div class="stat"><div class="stat-lbl">Distanza dal prezzo</div><div class="stat-val">${den(VOLTE)}×</div><div class="stat-note">${versoBase}</div></div>
+    <div class="stat"><div class="stat-lbl">Esercizio di riferimento</div><div class="stat-val" style="font-size:15px;line-height:1.5">${D.azienda.esercizio}</div><div class="stat-note">${D.azienda.fonte_bilancio}</div></div>`;
+
+  /* ── 1 · in una riga ────────────────────────────────────────────────────── */
+  el("s1").innerHTML = `
+    <div class="box-accent"><strong>La frase.</strong> ${D.frase_reverse}</div>
+    <div class="box-warn"><strong>Il termine di paragone.</strong> ${D.paragone}
+      L'ipotesi implicita nel prezzo ricade in <strong>${D.categoria}</strong>: ${D.categoria_perche}</div>
+    <p class="legenda">Le tre categorie ammesse — modeste, esigenti, eroiche — descrivono l'ipotesi
+      contenuta nel prezzo, non l'azienda, e non contengono nessuna azione.</p>`;
+
+  /* ── 2 · cosa fa l'azienda ──────────────────────────────────────────────── */
+  el("s2").innerHTML = D.azienda.cosa_fa.map(r => `<p>${r}</p>`).join("");
+
+  /* ── 3 · le ipotesi ─────────────────────────────────────────────────────── */
+  const motivazioni = ORD.map(s => `
+    <div class="scen ${s.classe}">
+      <div class="scen-nome">${s.nome}</div>
+      <div class="scen-txt" style="font-size:12.5px;color:var(--text-primary)">${s.motivazione}</div>
+    </div>`).join("");
+
+  const tabellaIpotesi = `
+    <div class="cmp-table-wrap"><table class="cmp">
+      <thead><tr><th>Campo</th>${ORD.map(s => `<th class="num">${s.nome}</th>`).join("")}</tr></thead>
+      <tbody>
+        <tr><td class="metric">Crescita dei ricavi, anni 1-5</td>${ORD.map(s => `<td class="num">${s.ipotesi.growth.map(g => nf(g, 0)).join(" · ")}%</td>`).join("")}</tr>
+        <tr><td class="metric">Margine EBIT, anni 1-5</td>${ORD.map(s => `<td class="num">${s.ipotesi.margin.map(m => nf(m, 0)).join(" · ")}%</td>`).join("")}</tr>
+        <tr><td class="metric">Costo del capitale (WACC)</td>${ORD.map(s => `<td class="num">${pc(s.ipotesi.wacc, 1)}</td>`).join("")}</tr>
+        <tr><td class="metric">Crescita perpetua (g)</td>${ORD.map(s => `<td class="num">${pc(s.ipotesi.g, 1)}</td>`).join("")}</tr>
+        <tr><td class="metric">ROIC a regime</td>${ORD.map(s => `<td class="num">${pc(s.ipotesi.roic, 1)}</td>`).join("")}</tr>
+        <tr><td class="metric">Sales-to-capital</td>${ORD.map(s => `<td class="num">${den(s.ipotesi.s2c)}</td>`).join("")}</tr>
+        <tr><td class="metric">Fattore (1 − g/ROIC)</td>${ORD.map(s => `<td class="num">${den(1 - s.ipotesi.g / s.ipotesi.roic)}</td>`).join("")}</tr>
+      </tbody></table></div>`;
+
+  el("s3").innerHTML = `
+    <p>Tre scenari, ognuno con una riga di motivazione nella forma
+       <em>numero · fonte · meccanismo</em>. Le ipotesi le sceglie chi valuta; l'aritmetica la fa lo script.</p>
+    <div class="scen-grid">${motivazioni}</div>
+    ${INT ? tabellaIpotesi : `<p class="legenda">I quindici campi del modello restano nel registro interno: qui contano le tre motivazioni e la distanza fra i tre esiti.</p>`}`;
+
+  /* ── 4 · i flussi ───────────────────────────────────────────────────────── */
+  const y = BASE.years;
+  el("s4").innerHTML = `
+    <p>Lo scenario base, anno per anno. Il reinvestimento e' derivato dai ricavi incrementali
+       (sales-to-capital ${den(BASE.ipotesi.s2c)}), non dalla somma di capex e ammortamenti: e' cio' che
+       impedisce di far crescere i ricavi senza il capitale che li finanzia.</p>
+    <div class="cmp-table-wrap"><table class="cmp">
+      <thead><tr><th>Voce</th>${y.map(r => `<th class="num">${r.anno}</th>`).join("")}</tr></thead>
+      <tbody>
+        <tr><td class="metric">Ricavi</td>${y.map(r => `<td class="num">${mln(r.revenue)}</td>`).join("")}</tr>
+        <tr><td class="metric">EBIT</td>${y.map(r => `<td class="num">${mln(r.ebit)}</td>`).join("")}</tr>
+        <tr><td class="metric">NOPAT</td>${y.map(r => `<td class="num">${mln(r.nopat)}</td>`).join("")}</tr>
+        <tr><td class="metric">− Reinvestimento</td>${y.map(r => `<td class="num">${mln(r.reinv)}</td>`).join("")}</tr>
+        <tr><td class="metric">FCFF</td>${y.map(r => `<td class="num">${mln(r.fcff)}</td>`).join("")}</tr>
+        <tr><td class="metric">Fattore di sconto</td>${y.map(r => `<td class="num">${nf(r.df, 4)}</td>`).join("")}</tr>
+        <tr class="highlight"><td class="metric">Valore attuale del FCFF</td>${y.map(r => `<td class="num">${mln(r.pv)}</td>`).join("")}</tr>
+      </tbody></table></div>
+    <div class="chart-wrap">
+      <div class="chart-title">FCFF nominale e valore attuale, scenario base</div>
+      <div class="chart-sub">Flussi di fine anno, scontati a periodi interi al ${pc(BASE.ipotesi.wacc, 1)} · importi in ${D.meta.unita}</div>
+      <div class="chart-canvas-wrap"><canvas id="flussiChart"></canvas></div>
+    </div>
+    ${y[0].fcff < 0 ? `<div class="box-warn"><strong>Il primo anno e' in cassa negativa.</strong>
+       ${mln(y[0].fcff)} milioni: la crescita del ${pc(BASE.ipotesi.growth[0], 0)} chiede piu' capitale di quanto
+       l'operativo ne produca. Non e' un errore del modello, e' il prezzo della crescita del primo anno.</div>` : ""}`;
+
+  new Chart(el("flussiChart"), {
+    type: "bar",
+    data: {
+      labels: y.map(r => r.anno),
+      datasets: [
+        { label: "FCFF nominale", data: y.map(r => r.fcff), backgroundColor: "#2A78D6", borderRadius: 4 },
+        { label: "Valore attuale", data: y.map(r => r.pv), backgroundColor: "#534AB7", borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, color: "#52514E" } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: "#898781", font: { size: 11 } } },
+        y: { grid: { color: "#E1E0D9" }, ticks: { color: "#898781", font: { size: 11 } },
+             title: { display: true, text: D.meta.unita, color: "#898781", font: { size: 11 } } }
+      }
+    }
+  });
+
+  /* ── 5 · dal valore all'azione — la cascata del ponte, voce per voce ────── */
+  const B = BASE.bridge;
+  const scala = Math.max(...B.map(r => Math.abs(r.importo))) || 1;
+  const righePonte = B.map((r, i) => {
+    const primo = i === 0;
+    const larghezza = Math.abs(r.importo) / scala * 100;
+    const colore = primo ? "#2A78D6" : (r.importo > 0 ? "#3B6D11" : "#A32D2D");
+    const barra = r.importo === 0
+      ? `<div class="wf-zero" title="voce dichiarata a zero"></div>`
+      : `<div class="wf-fill" style="width:${Math.max(6, larghezza)}%;background:${colore}">${mln(r.importo)}</div>`;
+    return `<div class="wf-row${primo ? " wf-tot" : ""}">
+        <div class="wf-lbl">${r.voce}</div>
+        <div class="wf-track">${barra}</div>
+        <div class="wf-amt">${mln(r.importo)}</div>
+        <div class="wf-cum">${mln(r.cumulato)}</div>
+      </div>`;
+  }).join("");
+
+  const chiusuraPonte = INT
+    ? `<div class="wf-row wf-tot">
+         <div class="wf-lbl">÷ ${mln(D.azioni_diluite)} mln azioni diluite</div>
+         <div class="wf-track"><div class="wf-fill" style="width:100%;background:#534AB7">fair value per azione</div></div>
+         <div class="wf-amt">—</div><div class="wf-cum">${den(BASE.fv)}</div>
+       </div>`
+    : `<div class="wf-row wf-tot">
+         <div class="wf-lbl">÷ ${mln(D.azioni_diluite)} mln azioni diluite</div>
+         <div class="wf-track"><div class="wf-fill" style="width:100%;background:#898781">l'esito per azione e' al §6, come intervallo dei tre scenari</div></div>
+         <div class="wf-amt">—</div><div class="wf-cum">§6</div>
+       </div>`;
+
+  el("s5").innerHTML = `
+    <p>L'Enterprise Value e' il valore dell'attivita' operativa. Quello che resta all'azionista si
+       ottiene togliendo chi ha una pretesa prima di lui. Le voci a zero restano nella cascata:
+       una riga a zero dichiarata vale piu' di una riga assente, che non si sa se sia zero o dimenticata.</p>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-lbl">Valore attuale dei flussi espliciti</div><div class="stat-val">${mln(BASE.pv_explicit)}</div><div class="stat-note">i cinque anni del §4</div></div>
+      <div class="stat"><div class="stat-lbl">Valore terminale attualizzato</div><div class="stat-val">${mln(BASE.pv_tv)}</div><div class="stat-note">${pc(BASE.quota_tv, 1)} dell'Enterprise Value</div></div>
+      <div class="stat"><div class="stat-lbl">Enterprise Value</div><div class="stat-val">${mln(BASE.ev)}</div><div class="stat-note">prima del ponte</div></div>
+      <div class="stat"><div class="stat-lbl">Equity value</div><div class="stat-val">${mln(BASE.eq)}</div><div class="stat-note">dopo il ponte</div></div>
+    </div>
+    <div class="waterfall">
+      <div class="wf-head"><div class="wf-lbl">Voce</div><div style="flex:1"></div><div class="wf-amt">Importo</div><div class="wf-cum">Cumulato</div></div>
+      ${righePonte}
+      ${chiusuraPonte}
+    </div>
+    <p class="legenda">${D.ponte_note}</p>`;
+
+  /* ── 6 · i tre scenari ──────────────────────────────────────────────────── */
+  const posizione = v => {
+    const lo = Math.min(FV_MIN, PREZZO), hi = Math.max(FV_MAX, PREZZO);
+    return hi === lo ? 50 : (v - lo) / (hi - lo) * 100;
+  };
+  /* l'etichetta si allinea al tick, ma ai due estremi si appoggia al bordo:
+     centrata uscirebbe dal riquadro. */
+  const ancora = p => p <= 10 ? "left:0"
+                    : p >= 90 ? "right:0"
+                    : "left:50%;transform:translateX(-50%)";
+  const tick = (p, cls, testo) =>
+    `<div class="range-tick${cls}" style="left:${p.toFixed(1)}%"><span style="${ancora(p)}">${testo}</span></div>`;
+  const barraRange = `
+    <div class="range-bar">
+      ${ORD.map(s => tick(posizione(s.fv), "", `${s.nome} ${den(s.fv)}`)).join("")}
+      ${tick(posizione(PREZZO), " tick-prezzo", `prezzo ${den(PREZZO)}`)}
+    </div>`;
+
+  const cardScenari = ORD.map(s => `
+    <div class="scen ${s.classe}">
+      <div class="scen-nome">${s.nome}</div>
+      <div class="scen-val">${den(s.fv)}</div>
+      <div class="scen-txt">
+        WACC ${pc(s.ipotesi.wacc, 1)} · g ${pc(s.ipotesi.g, 1)} · ROIC ${pc(s.ipotesi.roic, 0)}<br>
+        valore terminale ${pc(s.quota_tv, 1)} dell'EV
+        ${s.alarms.length ? `<br><span class="pill pill-red">${s.alarms.join(" · ")}</span>` : ""}
+      </div>
+    </div>`).join("");
+
+  el("s6").innerHTML = `
+    <div class="range">
+      <div class="stat-lbl">Intervallo del fair value per azione, i tre scenari affiancati</div>
+      <div class="range-val">${den(FV_MIN)} – ${den(FV_MAX)} ${D.meta.valuta}</div>
+      ${barraRange}
+      <p style="margin:0;font-size:13px;color:var(--text-secondary)">Fra il minimo e il massimo c'e' un fattore
+        ${den(FV_MAX / FV_MIN)}, con ipotesi tutte difendibili. <strong>Quel fattore e' il risultato</strong>:
+        dice che il valore di questa azienda non e' governato da cio' che ha fatto, ma da cio' che si crede fara'.
+        Rispetto a questo intervallo, ${versoBase}.</p>
+    </div>
+    <div class="scen-grid">${cardScenari}</div>
+    ${COND ? `<p class="legenda">Il fair value compare qui, e solo qui, come intervallo con i tre scenari
+       affiancati: un numero singolo, estratto da questo documento, verrebbe letto come un obiettivo di prezzo
+       qualunque avvertenza lo accompagni.</p>` : ""}`;
+
+  /* ── 7 · sensibilita' ───────────────────────────────────────────────────── */
+  const SS = D.sensibilita;
+  const righeSens = SS.wacc.map((w, i) => `
+    <tr>
+      <th class="rowhead">WACC ${pc(w, 1)}</th>
+      ${SS.g.map((g, j) => {
+        const v = SS.celle[i][j];
+        const base = i === SS.riga_base && j === SS.colonna_base;
+        if (v === null || v === undefined)
+          return `<td class="num cell-nulla" title="wacc non supera g: qui non esiste un numero">—</td>`;
+        return `<td class="num${base ? " cell-base" : ""}">${den(v)}</td>`;
+      }).join("")}
+    </tr>`).join("");
+
+  const cellaMin = Math.min(...SS.celle.flat().filter(v => v !== null));
+  const cellaMax = Math.max(...SS.celle.flat().filter(v => v !== null));
+
+  el("s7").innerHTML = `
+    <p>Il fair value per azione ricalcolato da capo in ogni cella: cambiando il costo del capitale cambiano
+       anche i valori attuali dei cinque anni, e cambiando la crescita perpetua cambia il fattore
+       (1 − g/ROIC). Ipotesi operative <strong>identiche</strong> in tutte e ${SS.wacc.length * SS.g.length} le celle.</p>
+    <div class="cmp-table-wrap"><table class="cmp">
+      <thead><tr><th>WACC \\ g perpetua</th>${SS.g.map(g => `<th class="num">${pc(g, 1)}</th>`).join("")}</tr></thead>
+      <tbody>${righeSens}</tbody>
+    </table></div>
+    <p class="legenda">Cella evidenziata: lo scenario base. Le celle vuote sono combinazioni in cui il costo del
+       capitale non supera la crescita perpetua: li' non esiste un numero, e non se ne scrive uno.</p>
+    <div class="box-purple"><strong>Come si legge, in tre modi.</strong>
+      L'<strong>ampiezza</strong>: da ${den(cellaMin)} a ${den(cellaMax)} a ipotesi operative identiche.
+      <strong>Dove cade il prezzo</strong>: ${den(PREZZO)} sta ${PREZZO > cellaMax ? "fuori dalla matrice, sopra ogni cella" : PREZZO < cellaMin ? "fuori dalla matrice, sotto ogni cella" : "dentro la matrice"}.
+      La <strong>pendenza lungo le righe</strong>: e' il costo del capitale a muovere il risultato piu' di ogni altra ipotesi.</div>`;
+
+  /* ── 8 · reverse DCF ────────────────────────────────────────────────────── */
+  const quante = COND ? 2 : D.reverse.length;
+  const righeRev = D.reverse.slice(0, quante).map(r => `
+    <tr>
+      <td class="metric">${r.variabile}<div style="font-weight:400;color:var(--text-muted);font-size:11.5px">${r.domanda}</div></td>
+      <td class="num">${r.modello}</td>
+      <td class="num">${r.valore === null ? `<span class="pill pill-amber">nessuna soluzione</span>` : `<strong>${den(r.valore)}</strong> ${r.unita}`}</td>
+    </tr>
+    <tr><td colspan="3" style="color:var(--text-secondary)">${r.valore === null ? `<em>Il motore dice:</em> ${r.motivo}<br>` : ""}${r.lettura}</td></tr>`).join("");
+
+  el("s8").innerHTML = `
+    <p>Lo stesso modello letto al contrario: il prezzo si prende come dato e si cerca quale ipotesi lo
+       renderebbe corretto. Non chiede di credere a niente — dice che cosa bisogna credere per giustificare
+       il prezzo che si vede.</p>
+    <div class="cmp-table-wrap"><table class="cmp">
+      <thead><tr><th>Variabile</th><th class="num">Ipotesi del modello</th><th class="num">Valore che giustifica ${den(PREZZO)}</th></tr></thead>
+      <tbody>${righeRev}</tbody>
+    </table></div>
+    ${COND ? `<p class="legenda">Delle quattro risposte del reverse DCF se ne portano due: le altre restano nel
+       registro interno, per non consegnare quattro numeri che sembrano quattro conferme indipendenti.</p>` : ""}
+    <div class="box-accent"><strong>Quattro letture della stessa distanza.</strong> ${D.reverse_avvertenza}
+      E nessuna delle quattro contiene un tempo: il reverse DCF non dice quando, e non puo'.</div>`;
+
+  /* ── 9 · allarmi ────────────────────────────────────────────────────────── */
+  const pillStato = s => s === "emesso" ? `<span class="pill pill-red">emesso</span>`
+                     : s === "non valutabile" ? `<span class="pill pill-amber">non valutabile</span>`
+                     : `<span class="pill pill-gray">non emesso</span>`;
+  const emessi = D.allarmi.filter(a => a.stato === "emesso");
+  const nonValutabili = D.allarmi.filter(a => a.stato === "non valutabile");
+
+  el("s9").innerHTML = `
+    <p>Tutti e ${D.allarmi.length} i controlli del motore, con il loro stato. Gli allarmi sono dati, non
+       eccezioni: il calcolo prosegue e il documento li mostra tutti, compresi quelli scomodi.</p>
+    <div class="cmp-table-wrap"><table class="cmp">
+      <thead><tr><th>Controllo</th><th>Stato</th><th>Dove</th></tr></thead>
+      <tbody>${D.allarmi.map(a => `
+        <tr class="${a.stato === "emesso" ? "highlight" : ""}"><td class="metric">${a.sigla}</td><td>${pillStato(a.stato)}</td><td>${a.dove}</td></tr>
+        <tr><td colspan="3" style="color:var(--text-secondary)">${a.testo}</td></tr>`).join("")}
+      </tbody></table></div>
+    ${emessi.length ? emessi.map(a => `<div class="box-danger"><strong>${a.sigla}.</strong> ${a.testo}</div>`).join("") : `<div class="box-success"><strong>Nessun allarme emesso.</strong> Nessuno dei controlli che hanno potuto girare ha superato la propria soglia.</div>`}
+    ${nonValutabili.length ? `<div class="box-warn"><strong>Un controllo che non ha potuto girare non e' un controllo superato.</strong>
+       ${nonValutabili.map(a => a.sigla).join(", ")}: ${nonValutabili.map(a => a.testo).join(" ")}</div>` : ""}`;
+
+  /* ── 10 · cosa guardare d'ora in poi ────────────────────────────────────── */
+  el("s10").innerHTML = `
+    <p>I ${D.indicatori.length} indicatori che falsificherebbero le ipotesi, con la soglia. Un verdetto senza
+       indicatori di falsificazione e' una posizione, non un'analisi: fra sei mesi non ci sarebbe modo di sapere
+       se reggeva.</p>
+    <div class="cmp-table-wrap"><table class="cmp">
+      <thead><tr><th>Indicatore</th><th>Soglia</th></tr></thead>
+      <tbody>${D.indicatori.map(i => `
+        <tr><td class="metric">${i.cosa}</td><td>${i.soglia}</td></tr>
+        <tr><td colspan="2" style="color:var(--text-secondary)">${i.perche}</td></tr>`).join("")}
+      </tbody></table></div>
+    <div class="box-warn"><strong>Quando questo documento va riaperto.</strong> Al superamento di una delle soglie
+      qui sopra, oppure alla scadenza delle ipotesi registrata nel registro. Riaprirlo significa scrivere prima
+      che cosa e' cambiato e perche', poi le ipotesi nuove: e' l'append-only applicato al pensiero.</div>`;
+
+  /* ── 11 · glossario ─────────────────────────────────────────────────────── */
+  el("s11").innerHTML = `
+    <div class="assumptions"><h3>Ogni termine tecnico di questo documento, in una riga</h3>
+      <dl>${D.glossario.map(g => `<dt>${g.t}</dt><dd>${g.d}</dd>`).join("")}</dl>
+    </div>`;
+
+  /* ── chiusura fissa ─────────────────────────────────────────────────────── */
+  el("chiusura").innerHTML = `
+    ${D.chiusura_metodo} Prezzo in modalita' ${D.meta.modalita}, ripreso il ${D.prezzo.data} alle ${D.prezzo.ora} e non conservato per confronti successivi. Documento reso nel registro <strong>${D.registro}</strong>.
+    <br><br>
+    Contenuto informativo e di metodo, <strong>non consulenza finanziaria personalizzata</strong> ai sensi di legge
+    ne' raccomandazione di investimento. Non contiene voti, obiettivi di prezzo, orizzonti temporali ne' indicazioni
+    su pesi, ingressi o uscite. Un fair value e' l'esito delle ipotesi dichiarate: cambiando quelle, cambia.
+    Investire comporta il rischio di perdere capitale.`;
+})();
+</script>
+</body>
+</html>
