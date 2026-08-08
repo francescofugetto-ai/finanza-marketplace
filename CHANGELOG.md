@@ -1,5 +1,78 @@
 # Changelog — finanza-personale
 
+## 2026-08-08 — l'ottava skill: `valutazione-aziende-dcf`
+
+Valutazione di singole aziende quotate con il metodo dei flussi di cassa
+scontati. E' la prima skill che produce un **fair value**, cioe' il tipo di
+numero che si presta piu' facilmente a essere letto come una raccomandazione:
+buona parte di quello che segue esiste per impedirlo.
+
+**La skill nuova**
+
+- `valutazione-aziende-dcf/scripts/dcf_engine.py` — motore senza dipendenze
+  esterne, versione 1.1. Tabella per anno, valore terminale con ROIC, ponte
+  **riga per riga** da enterprise value a equity value, matrice di sensibilita'
+  WACC × g, cinque allarmi. Quattro risolutori inversi.
+- `scripts/test_dcf_engine.py` — prova di riferimento sul modello dell'episodio
+  337: valori annuali, aggregati, fair value e tutte e 25 le celle della matrice.
+- `scripts/scadenzario.py` + `scripts/test_scadenzario.py` — interroga il
+  registro in **sola lettura** e classifica ogni azienda in quattro stati.
+  Ricostruisce la catena delle valutazioni leggendo **entrambi** i campi di
+  supersessione, e si ferma con un errore se si contraddicono: fidarsi di uno
+  solo vorrebbe dire, in meta' dei casi, mostrare `CORRENTE` una valutazione
+  superata.
+- `references/00`-`08` — nove file di dottrina.
+- `assets/template-report.html` — dodici sezioni, parametro `registro` fra
+  `interno` e `condiviso`, che **cambia solo il rendering, mai il calcolo**.
+
+**Le regole che il registro impone, e che ora sono scritte**
+
+- Il record e' `tipo: "dossier"` con `"valutazione"` fra i `tag`: la lista dei
+  tipi in `kb.py` e' chiusa e un tipo nuovo verrebbe rifiutato. Nessuna modifica
+  a `kb.py` ne' a `SCHEMA.md`.
+- `layer: "dottrina"` impone `condivisibile: true`. Quindi il record **puo'
+  affiorare in un progetto cliente**, ed e' la ragione per cui non contiene mai
+  un fair value nudo: il valore sta solo in `fair_value_range`, inseparabile
+  dalle ipotesi e dalla data oltre la quale non vale piu'.
+- **Un record condivisibile non contiene puntatori a materiale non
+  condivisibile**: il record porta il percorso del documento **condiviso**, mai
+  quello interno.
+- Conseguenza, e regola: **una valutazione si produce sempre in entrambi i
+  registri**. Ogni valutazione deve esistere anche in una forma mostrabile a
+  terzi — la stessa disciplina del fair value, spostata dal numero al documento.
+- Dove si archivia un documento, in generale: `layer mandato` →
+  `reports/<soggetto>/<anno>/`, `layer dottrina` → `reports/<categoria>/<anno>/`,
+  mai sotto un soggetto.
+
+**File esistenti toccati**
+
+- `metodo-fiduciario/SKILL.md` §0.3 — l'ottava skill nell'elenco e nell'ordine
+  d'uso, piu' il blocco del confine: *il lavoro di valutazione puo' cambiare
+  quanto ti aspetti e quanto rischio sai di correre, non puo' cambiare i pesi*.
+  Il confine con la modalita' B di `analisi-documenti-investimento` e' separato
+  **per domanda**, non per oggetto: «quanto vale questa azienda» contro «questo
+  strumento serve al mio scopo».
+- `README.md`, `marketplace.json`, `plugin.json` — otto skill, non sette. Nella
+  riga dello schema della struttura il conteggio e' stato **tolto** invece che
+  aggiornato: la tabella completa sta tre righe sopra.
+- `06-verdetto-e-linguaggio.md` §2 e §6, `08-manutenzione-e-batch.md`,
+  `valutazione-aziende-dcf/SKILL.md` — i due registri, i due record distinti nel
+  caso del cliente (la valutazione e' dottrina, la traccia della risposta e'
+  mandato: *la valutazione non appartiene a nessuno, la conversazione si'*), e i
+  conteggi di controlli tolti dai testi, che ora rimandano all'output delle prove.
+
+**Il controllo di salute** (`verifica.py`, che vive fuori da questo repository)
+
+- Gruppo **TEST** nuovo, separato da MOTORI: MOTORI verifica che i sorgenti
+  compilino, TEST che si comportino bene. Le prove delle skill vengono eseguite
+  davvero, e un motore che compila ma calcola male non passa piu'.
+- I sorgenti vengono compilati anche con il **pavimento Python dichiarato**,
+  3.11, e non solo con l'interprete piu' recente installato.
+- Gruppo **RIPRISTINO** nuovo: i percorsi promessi come vie d'uscita dalla
+  procedura anti-disastro devono esistere davvero.
+- Regola che governa tutti i gialli: **un controllo che non ha potuto girare non
+  e' un controllo superato**, e ogni giallo dice che cosa fare per chiuderlo.
+
 ## 2026-08-05 — due difetti emersi dalle prove sul campo
 
 Nessuno dei due era un guasto: erano due modi in cui il sistema poteva dare una
