@@ -199,8 +199,11 @@ class ReverseResult:
     di plausibilita' non esiste soluzione: in quel caso `motivo` dice perche',
     e non si restituisce nessun numero.
 
-    `grandezza` dice **che cosa** misura `value`: serve a non dover indovinare
-    l'unita' di misura dal nome della funzione che l'ha prodotto.
+    `grandezza` dice **che cosa** misura `value`, perche' non e' la stessa cosa
+    per tutti e quattro: dove l'ipotesi e' un punto d'arrivo (un margine, un
+    tasso) `value` e' quel punto; dove l'ipotesi e' un percorso di crescita
+    `value` e' l'invariante economica — il CAGR implicito dei ricavi — e non uno
+    dei tassi annui, che dipendono dalla forma scelta e non dal modello.
 
     `percorso` e' l'ipotesi anno per anno che realizza la soluzione: serve a
     mostrarla e a rimetterla nel motore per riverificarla. E' un'**illustrazione**
@@ -632,6 +635,16 @@ def _senza_prezzo(inputs: DcfInputs, etichetta: str) -> Optional[ReverseResult]:
     return None
 
 
+def _cagr_ricavi(inputs: DcfInputs, percorso: list) -> tuple:
+    """(CAGR implicito in punti percentuali, ricavi dell'ultimo anno) dato un
+    percorso di crescita. E' l'invariante economica del reverse sulla crescita."""
+    r = inputs.revenue_base
+    for g in percorso:
+        r *= (1.0 + g / 100.0)
+    cagr = ((r / inputs.revenue_base) ** (1.0 / len(percorso)) - 1.0) * 100.0
+    return cagr, r
+
+
 def _rifinisci(esito: ReverseResult, valori: list, percorso, nota_forma: str,
                grandezza: str, converti=None) -> ReverseResult:
     """Completa l'esito di un risolutore che muove un percorso: allega il
@@ -641,7 +654,8 @@ def _rifinisci(esito: ReverseResult, valori: list, percorso, nota_forma: str,
     caso di fallimento sarebbe dichiarato proprio quando serve di meno.
 
     `converti`, se presente, trasforma l'obiettivo risolto nella grandezza da
-    pubblicare e restituisce anche i dettagli derivati.
+    pubblicare (per la crescita: il CAGR implicito) e restituisce anche i
+    dettagli derivati.
     """
     note = [nota_forma] if nota_forma else []
     risolto = esito.value
@@ -662,18 +676,45 @@ def _rifinisci(esito: ReverseResult, valori: list, percorso, nota_forma: str,
 
 
 def reverse_growth(inputs: DcfInputs) -> ReverseResult:
-    """La crescita dei ricavi **uniforme** sui cinque anni che azzera l'upside.
+    """Che cosa il prezzo sta assumendo sui ricavi.
 
-    Uniforme e non "scalata dal percorso attuale": il numero serve a essere
-    detto a voce — «il prezzo sta scontando il 34% l'anno per cinque anni» — e un
-    percorso non uniforme non si riassume in una cifra sola.
+    **La grandezza pubblicata e' il CAGR implicito dei ricavi**, con i ricavi
+    finali impliciti accanto; il percorso anno per anno resta visibile come
+    illustrazione. Non e' una scelta di gusto: quattro modi ragionevoli di far
+    variare il percorso danno tassi annui che vanno dal 41,7% al 62,9% — oltre
+    venti punti — e ricavi finali fra 12.647 e 12.886 milioni, cioe' mezzo punto
+    di CAGR. **Il modello e' guidato dai ricavi cumulati, non dalla forma**, e
+    pubblicare il tasso annuo significherebbe pubblicare l'unica grandezza che
+    dipende da una convenzione nostra invece che dal mercato.
+
+    Il percorso si muove per riscalatura degli incrementi (vedi
+    `_coefficienti_di_forma`) con il **primo anno ancorato**. Nel caso di
+    riferimento il primo anno e' il 106% del 2026, che non e' una tendenza ma
+    l'ingresso a regime di due acquisizioni: spalmarlo su cinque anni, come
+    faceva la versione uniforme, distrugge il significato dell'ipotesi e produce
+    una frase che nessuno ha mai assunto.
     """
     fermo = _senza_prezzo(inputs, "reverse_growth")
     if fermo:
         return fermo
 
-    f = _scarto(inputs)(lambda x: replace(inputs, growth=[x] * ORIZZONTE_ANNI))
-    return _bisezione(f, LIMITI_CRESCITA[0], LIMITI_CRESCITA[1], "reverse_growth")
+    ancora = inputs.growth[0]
+    c, nota = _coefficienti_di_forma(inputs.growth)
+    lo, hi = _intervallo_ammissibile(ancora, c, LIMITI_CRESCITA[0], LIMITI_CRESCITA[1])
+    percorso = lambda x: [ancora + ci * (x - ancora) for ci in c]  # noqa: E731
+
+    f = _scarto(inputs)(lambda x: replace(inputs, growth=percorso(x)))
+    esito = _bisezione(f, lo, hi, "reverse_growth")
+
+    def converti(p, risolto):
+        cagr, ricavi = _cagr_ricavi(inputs, p)
+        return cagr, {"ricavi_finali": ricavi,
+                      "ricavi_base": inputs.revenue_base,
+                      "crescita_ultimo_anno": risolto,
+                      "anno_finale": inputs.year_base + ORIZZONTE_ANNI}
+
+    return _rifinisci(esito, inputs.growth, percorso, nota,
+                      "CAGR implicito dei ricavi", converti)
 
 
 def reverse_g_terminal(inputs: DcfInputs) -> ReverseResult:

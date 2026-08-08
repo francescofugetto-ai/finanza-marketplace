@@ -367,6 +367,7 @@ def prova_reverse(p: Prova):
         c, _ = _coefficienti_di_forma(valori)
         return _intervallo_ammissibile(valori[0], c, limiti[0], limiti[1]), c
 
+    (lim_g, _cg) = estremi_percorso(base.growth, LIMITI_CRESCITA)
     (lim_m, _cm) = estremi_percorso(base.ebit_margin, LIMITI_MARGINE)
 
     def con_percorso(campo, c, valori):
@@ -375,7 +376,7 @@ def prova_reverse(p: Prova):
 
     casi = [
         ("reverse_growth", reverse_growth,
-         lambda x: replace(base, growth=[x] * 5), LIMITI_CRESCITA, "%/anno sui 5 anni"),
+         con_percorso("growth", _cg, base.growth), lim_g, "% CAGR ricavi"),
         ("reverse_g_terminal", reverse_g_terminal,
          lambda x: replace(base, g_terminal=x),
          (LIMITI_G_TERMINALE[0], base.wacc - MARGINE_G_WACC), "% perpetua"),
@@ -527,6 +528,17 @@ def prova_forma_del_percorso(p: Prova):
               f"pendenze fra {min(pend):.9f} e {max(pend):.9f}")
     print(f"  {'ok' if ok else 'KO'}   pendenza costante a {pend[0]:.6f} "
           f"(scarto {max(pend) - min(pend):.2e})")
+
+    # 8 · il primo anno della crescita resta ancorato al fatto assunto
+    eg = reverse_growth(input_base())
+    ok = (eg.percorso is not None and eg.percorso[0] == 106.0
+          and eg.grandezza == "CAGR implicito dei ricavi"
+          and eg.dettagli is not None and eg.dettagli["ricavi_finali"] > 12000.0)
+    p.afferma("reverse_growth: anno 1 ancorato a 106%, pubblica il CAGR implicito", ok,
+              f"value={eg.value}, percorso={eg.percorso}")
+    print(f"  {'ok' if ok else 'KO'}   CAGR implicito {eg.value:.2f}%, ricavi "
+          f"{eg.dettagli['anno_finale']} impliciti {eg.dettagli['ricavi_finali']:,.0f} mln")
+    print(f"         percorso illustrativo: {' · '.join(f'{x:.1f}' for x in eg.percorso)}")
 
 # --------------------------------------------------------------------------- #
 

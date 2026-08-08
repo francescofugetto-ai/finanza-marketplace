@@ -284,7 +284,7 @@ const D = {
 
   /* La frase del reverse DCF. Forma fissa: prezzo, data, «sta scontando»,
      nessuna conclusione attaccata in coda. Nel registro condiviso e' il titolo. */
-  frase_reverse: "A 35,93 dollari, al 7 agosto 2026, il prezzo sta scontando ricavi in crescita del 58% l'anno per cinque anni — quasi dieci volte il fatturato attuale.",
+  frase_reverse: "A 35,93 dollari, al 7 agosto 2026, il prezzo sta scontando ricavi a 12,6 miliardi nel 2030 — quasi dieci volte il fatturato attuale, un CAGR del 57,4%.",
 
   /* La distanza dal prezzo si scrive come multiplo, mai come percentuale di
      rialzo o di ribasso — ma il multiplo e la percentuale dicono la stessa cosa:
@@ -406,9 +406,15 @@ const D = {
   /* I quattro risolutori, nell'ordine in cui si leggono. `valore: null` non e'
      un buco: e' un risultato, e il motivo del motore va riportato tale e quale. */
   reverse: [
+    /* La grandezza pubblicata e' il CAGR implicito, non uno dei tassi annui: il
+       modello e' guidato dai ricavi cumulati, e il tasso annuo dipende anche da
+       come si distribuisce nel tempo. Il percorso resta visibile come
+       illustrazione. Vedi 05-reverse-dcf.md §2-ter. */
     { variabile: "Crescita dei ricavi", domanda: "quanto deve crescere il fatturato",
-      modello: "106 · 30 · 22 · 16 · 12 %", valore: 57.9672, unita: "% l'anno, uniforme sui cinque anni",
-      lettura: "Il 57,97% composto porta i ricavi da 1.310 a 12.886 milioni in cinque anni: quasi dieci volte, contro le 4,2 volte dello scenario base." },
+      modello: "106 · 30 · 22 · 16 · 12 % (CAGR 33,53%)", valore: 57.3786,
+      unita: "% di CAGR implicito dei ricavi",
+      illustrazione: "percorso che lo realizza: 106 · 54,0 · 48,6 · 44,5 · 41,7 %",
+      lettura: "Il CAGR del 57,38% porta i ricavi da 1.310 a 12.647 milioni nel 2030: 9,7 volte, contro le 4,2 volte dello scenario base. Il primo anno resta il 106% del 2026, che e' l'ingresso a regime di due acquisizioni e non una tendenza." },
     { variabile: "Margine EBIT al quinto anno", domanda: "quanto deve diventare redditizia",
       modello: "33%", valore: null, unita: "%",
       motivo: "nessuna soluzione fra 0 e 60. Su tutto l'intervallo plausibile il fair value resta sotto il prezzo di mercato, quindi il prezzo non sta scontando un valore credibile di questa variabile",
@@ -766,7 +772,7 @@ const D = {
       <td class="num">${r.modello}</td>
       <td class="num">${r.valore === null ? `<span class="pill pill-amber">nessuna soluzione</span>` : `<strong>${den(r.valore)}</strong> ${r.unita}`}</td>
     </tr>
-    <tr><td colspan="3" style="color:var(--text-secondary)">${r.valore === null ? `<em>Il motore dice:</em> ${r.motivo}<br>` : ""}${r.lettura}</td></tr>`).join("");
+    <tr><td colspan="3" style="color:var(--text-secondary)">${r.valore === null ? `<em>Il motore dice:</em> ${r.motivo}<br>` : ""}${r.lettura}${r.illustrazione ? `<br><span class="legenda">${r.illustrazione} — e' un'illustrazione della grandezza, non il risultato</span>` : ""}</td></tr>`).join("");
 
   el("s8").innerHTML = `
     <p>Lo stesso modello letto al contrario: il prezzo si prende come dato e si cerca quale ipotesi lo

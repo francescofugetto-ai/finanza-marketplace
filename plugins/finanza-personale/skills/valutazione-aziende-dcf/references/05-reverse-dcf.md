@@ -46,17 +46,18 @@ mercato, rispetto a tre mesi fa?»*. Vedi `references/08-manutenzione-e-batch.md
 Il motore risolve una variabile alla volta, tenendo **tutte le altre ferme**, e
 cercando il valore che porta il fair value esattamente sul prezzo di mercato.
 
-| Funzione | Risolve | La domanda in italiano |
+| Funzione | Grandezza pubblicata | La domanda in italiano |
 |---|---|---|
-| `reverse_growth` | crescita dei ricavi, **uniforme** sui cinque anni | quanto deve crescere il fatturato |
-| `reverse_margin` | margine EBIT del quinto anno | quanto deve diventare redditizia |
+| `reverse_growth` | **CAGR implicito dei ricavi**, con i ricavi finali impliciti | quanto deve crescere il fatturato |
+| `reverse_margin` | margine EBIT dell'ultimo anno esplicito | quanto deve diventare redditizia |
 | `reverse_g_terminal` | crescita perpetua | quanto deve durare il vantaggio |
 | `reverse_wacc` | costo del capitale | che rendimento sta chiedendo chi compra oggi |
 
-Tutte restituiscono una struttura `ReverseResult` con due campi soli: `value`, in
-punti percentuali, e `motivo`, una riga di testo. Quando `value` è `None` il
-`motivo` dice perché, ed è quello che va nel report — **mai un numero al suo
-posto**.
+Tutte restituiscono un `ReverseResult`: `value` (la grandezza pubblicata, in punti
+percentuali), `motivo` (una riga di testo), `grandezza` (che cosa `value` misura),
+`percorso` (l'ipotesi anno per anno, quando la variabile è un percorso) e
+`dettagli` (le grandezze derivate). Quando `value` è `None` il `motivo` dice
+perché, ed è quello che va nel report — **mai un numero al suo posto**.
 
 ---
 
@@ -134,6 +135,41 @@ numero restituito venga da un percorso interamente plausibile.
 
 ---
 
+## 2-ter · Perché un risolutore ha cambiato titolo e l'altro no
+
+`reverse_growth` pubblica il **CAGR implicito dei ricavi**; `reverse_margin`
+pubblica il valore che risolve. Non è un'incoerenza: è la conseguenza misurata di
+una differenza strutturale fra le due variabili.
+
+**La prova.** Si risolve la stessa domanda con tre convenzioni diverse
+(interpolazione lineare, riscalatura, traslazione parallela) e si guarda di quanto
+si muove la risposta.
+
+| prezzo | margine risolto: lineare · riscalata · traslata | escursione |
+|---|---|---|
+| 5,00 | 17,89 · 17,97 · 19,53 | **8,9%** |
+| 10,00 | 26,27 · 26,19 · 26,90 | **2,7%** |
+| 15,00 | 34,65 · 34,41 · 34,26 | **1,1%** |
+| 20,00 | 43,02 · 42,62 · 41,63 | **3,3%** |
+| 25,00 | 51,40 · 50,84 · 48,99 | **4,8%** |
+| 30,00 | 59,78 · 59,06 · 56,35 | **5,9%** |
+
+Per la **crescita**, con quattro convenzioni ragionevoli, il tasso annuo va da
+**41,74% a 62,87%** — oltre venti punti, il **42%** — mentre i ricavi finali
+impliciti stanno fra 12.647 e 12.886 milioni, cioè mezzo punto di CAGR.
+
+**La ragione è strutturale.** Un margine è un **punto d'arrivo**: il valore
+risolto *è* l'ipotesi, e la convenzione sulla forma sposta poco perché il quinto
+anno pesa comunque di più. Un tasso di crescita annuo è invece una **derivata**:
+il modello è guidato dai **ricavi cumulati**, e infinite combinazioni di tassi
+annui producono lo stesso cumulato. Pubblicare il tasso annuo significa pubblicare
+l'unica grandezza che dipende da una convenzione nostra invece che dal mercato.
+
+Da qui la regola: **quando la variabile risolta è un tasso, si pubblica
+l'invariante** — il CAGR implicito e il livello di ricavi che ne discende — **e il
+percorso anno per anno resta visibile come illustrazione, non come risultato.**
+
+---
 
 ## 3 · L'ordine in cui si risolvono
 
@@ -141,9 +177,11 @@ L'ordine non è indifferente: le quattro risposte non hanno la stessa leggibilit
 e non reggono lo stesso peso in una discussione.
 
 **Primo, `reverse_growth`.** È la variabile che chiunque sa giudicare. «Questa
-azienda deve crescere del 58% l'anno per cinque anni» si valuta guardando il
-fatturato dei concorrenti, la dimensione del mercato, la storia dell'azienda
-stessa. Non serve sapere che cos'è un WACC.
+azienda deve arrivare a 12,6 miliardi di fatturato nel 2030, quasi dieci volte
+quello di oggi» si valuta guardando il fatturato dei concorrenti, la dimensione
+del mercato, la storia dell'azienda stessa. Non serve sapere che cos'è un WACC.
+Si dice come **livello di ricavi**, non come tasso annuo: il livello è ciò che il
+mercato sta assumendo, il tasso dipende anche da come si distribuisce nel tempo.
 
 **Secondo, `reverse_margin`.** Stessa qualità, un gradino più tecnica. Si giudica
 contro il margine del concorrente più redditizio del settore, che è un dato
@@ -173,16 +211,22 @@ value base **14,14**, quindi un prezzo che sta **2,5 volte** sopra.
 
 | Variabile | Ipotesi del modello | Valore che giustifica 35,93 |
 |---|---|---|
-| Crescita ricavi | `[106, 30, 22, 16, 12]` | **57,97% l'anno**, per cinque anni |
+| Crescita ricavi | `[106, 30, 22, 16, 12]`, CAGR 33,53% | **CAGR 57,38%** → ricavi 2030 a **12.647** milioni |
 | Margine EBIT al quinto anno | 33% | **nessuna soluzione** sotto il 60% |
 | Crescita perpetua | 3% | **7,72%** |
 | Costo del capitale | 10% | **6,58%** |
 
 Le quattro righe lette come si devono leggere:
 
-**La crescita.** Il 57,97% composto porta i ricavi da 1.310 a **12.886** milioni
-in cinque anni: quasi **dieci volte**, contro le 4,2 volte del modello base. Non
-è un'ipotesi aggressiva, è un'azienda diversa.
+**La crescita.** Il CAGR implicito del **57,38%** porta i ricavi da 1.310 a
+**12.647** milioni in cinque anni: **9,7 volte**, contro le 4,2 volte del modello
+base. Non è un'ipotesi aggressiva, è un'azienda diversa.
+
+Il percorso che realizza quel cumulato, mostrato come illustrazione, è
+`106 · 54,0 · 48,6 · 44,5 · 41,7`: il primo anno resta il 106% del 2026, che non è
+una tendenza ma l'ingresso a regime di due acquisizioni, e il decadimento
+successivo conserva la forma dell'ipotesi originale. **Il numero da dire a voce è
+il cumulato, non uno dei cinque tassi** — vedi §2-ter.
 
 **Il margine.** Il risolutore restituisce `None`, e il motivo dice: *nessuna
 soluzione fra 0 e 60. Su tutto l'intervallo plausibile il fair value resta sotto
@@ -207,10 +251,10 @@ ipotesi, prezzo ipotetico **12,00** invece di 35,93:
 
 | Variabile | Valore che giustifica 12,00 |
 |---|---|
-| Crescita ricavi | 31,47% l'anno |
+| Crescita ricavi | CAGR **30,05%** → ricavi 2030 a 4.873 milioni |
 | Margine EBIT al quinto anno | **29,48%** |
-| Crescita perpetua | 1,30% |
-| Costo del capitale | 10,74% |
+| Crescita perpetua | **1,30%** |
+| Costo del capitale | **10,74%** |
 
 Quattro numeri tutti modesti rispetto alle ipotesi del modello, e tutti dentro
 l'intervallo del già visto. La lettura è simmetrica e altrettanto netta: a quel
@@ -236,8 +280,8 @@ senza data diventa vera per sempre, che è peggio.
 sono verbi che spostano l'affermazione dal mercato all'azienda. Il reverse DCF
 descrive il prezzo, non l'azienda.
 
-**Nessuna conclusione attaccata in coda.** *«…sta scontando il 58% l'anno per
-cinque anni, che pare improbabile»* non è più una traduzione: è un giudizio, e ha
+**Nessuna conclusione attaccata in coda.** *«…sta scontando ricavi a 12,6 miliardi
+nel 2030, che pare improbabile»* non è più una traduzione: è un giudizio, e ha
 già cambiato registro. L'improbabilità la valuta chi legge, con i termini di
 paragone che il report gli mette a disposizione al paragrafo successivo.
 
@@ -245,7 +289,7 @@ Tre esempi, dal caso di riferimento.
 
 | | Frase |
 |---|---|
-| **Corretta** | «A 35,93 dollari, al 7 agosto 2026, il prezzo sta scontando ricavi in crescita del 58% l'anno per cinque anni — quasi dieci volte il fatturato attuale.» |
+| **Corretta** | «A 35,93 dollari, al 7 agosto 2026, il prezzo sta scontando ricavi a 12,6 miliardi nel 2030 — quasi dieci volte il fatturato attuale, un CAGR del 57,4%.» |
 | **Corretta** | «A 35,93 dollari, al 7 agosto 2026, nessun livello di redditività entro il 60% di margine operativo giustifica il prezzo: la scommessa è tutta sui volumi, non sui margini.» |
 | **Sbagliata** | «Il titolo sconta ipotesi eroiche e ha un downside del 61%.» — *downside* è un target price travestito, *eroiche* è un giudizio nel titolo, e manca il prezzo con la data. |
 
@@ -266,8 +310,8 @@ I risolutori cercano dentro limiti dichiarati, e fuori da quelli restituiscono
 | Crescita perpetua | 0% … `wacc` − 0,5 | avvicinandosi al WACC il valore esplode e qualunque prezzo è giustificabile |
 | Costo del capitale | 4% … 25% | sotto il 4% non si sta più scontando un rischio azionario |
 
-Per la variabile che è un **percorso**, il limite vale per ogni anno mosso e non
-solo per quello cercato: l'intervallo effettivo è quello ristretto del §2-bis.
+Per le due variabili che sono **percorsi**, il limite vale per ogni anno mosso e
+non solo per quello cercato: l'intervallo effettivo è quello ristretto del §2-bis.
 
 **Il limite non è un dettaglio tecnico della bisezione.** È l'affermazione che
 oltre quel valore l'ipotesi non è più credibile. Allargarlo per «ottenere un
@@ -311,7 +355,8 @@ frase senza termine di paragone.
 ## 8 · Riepilogo
 
 ```
-reverse_growth ....... crescita uniforme 5 anni.  Limiti  -20% .. +100%
+reverse_growth ....... CAGR implicito dei ricavi. Limiti  -20% .. +100%
+                       percorso: incrementi riscalati, anno 1 ancorato
 reverse_margin ....... margine EBIT anno 5.       Limiti    0% ..   60%
                        percorso: incrementi riscalati, anno 1 ancorato
                        i limiti valgono per OGNI anno mosso, non solo l'ultimo
