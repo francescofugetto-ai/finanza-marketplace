@@ -256,6 +256,7 @@ guardando l'ultimo report.
 | `05-reverse-dcf.md` | come si legge che cosa il prezzo sta già scontando |
 | `06-verdetto-e-linguaggio.md` | come si scrive il risultato, e che cosa non si scrive mai |
 | `07-ponte-etf.md` | come questo lavoro entra — e non entra — nel portafoglio |
+| `08-manutenzione-e-batch.md` | a quale ritmo si tiene aggiornato, e che cosa fa il comando in serie |
 
 L'ordine di lettura è quello di scrittura. Chi salta il `02` e arriva al `03` si
 trova a scegliere un tasso di sconto senza sapere che cosa sta scontando.
