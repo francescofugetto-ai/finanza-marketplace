@@ -122,9 +122,9 @@ valore terminale peserà quasi tutto e va detto. Motivi e casi in
 ### PASSO 2 — Estrazione dei dati
 
 Gerarchia: **documento caricato** (relazione annuale) → **SEC EDGAR** via MCP di
-terzi → **web** solo per il prezzo e per il tasso privo di rischio. Ogni voce
-porta fonte e data. Se il prezzo viene dal web — e viene sempre dal web — il
-documento dichiara **CAMPO in testa**.
+terzi → **connettore `finanza`** per il tasso privo di rischio → **web** solo per
+il prezzo. Ogni voce porta fonte e data. Se il prezzo viene dal web — e viene
+sempre dal web — il documento dichiara **CAMPO in testa**.
 
 Segui `references/01-estrazione-dati.md`: dove stanno le voci in US GAAP e in
 IFRS, come si legge il ponte del debito dallo stato patrimoniale, e le quattro
@@ -141,7 +141,9 @@ che è la leva a cui il risultato è più sensibile; `references/04-valore-termi
 per la crescita perpetua e il fattore `(1 − g/ROIC)`.
 
 Il tasso privo di rischio va preso **nella valuta dei flussi**: un'azienda
-americana si sconta sul Treasury, non sul Bund.
+americana si sconta sul Treasury, non sul Bund. Lo dà lo strumento `risk_free`
+del connettore, che copre entrambe le valute ed è quindi **BANCO**: vedi
+`references/03-tasso-di-sconto.md` §2.
 
 **Se si sta riaprendo una valutazione esistente**, prima di scrivere le ipotesi
 nuove si apre la precedente e si scrive **che cosa è cambiato e perché**. È
@@ -158,7 +160,10 @@ Gli allarmi (`SBC_ELEVATA`, `TV_DOMINANTE`, `G_SOPRA_RISK_FREE`, `CASSA_NETTA`,
 documento li mostra tutti. Un allarme taciuto è un difetto del documento.
 
 Valorizza sempre i due campi opzionali `sbc` e `risk_free`: se restano vuoti i
-rispettivi allarmi non possono scattare, e il silenzio non è un'assoluzione.
+rispettivi allarmi non possono scattare, e il silenzio non è un'assoluzione. Il
+`risk_free` del motore è un **campo di input**, omonimo dello strumento del
+connettore ma non la stessa cosa: il valore da scriverci è quello che lo
+strumento ha restituito.
 
 ### PASSO 5 — La sensibilità
 
@@ -216,8 +221,10 @@ in coda, una al mese.
 
 Le holdings dell'ETF si ottengono con **degrado graduale**: strumento
 `etf_holdings` del connettore se esposto (BANCO), altrimenti pagina dell'emittente
-via web (CAMPO), altrimenti si chiede. `etf_holdings` **oggi non esiste**, ed è
-scritto così apposta: quando arriverà, la skill non andrà riscritta.
+via web (CAMPO), altrimenti si chiede. `etf_holdings` **ora esiste**, e il degrado
+scritto in anticipo ha fatto il suo lavoro: la skill non è stata riscritta. Copre
+**SPDR e Xtrackers**; per ogni altro emittente il livello 1 non risolve e si
+scende al 2. I limiti accertati sono in `references/08-manutenzione-e-batch.md` §7.
 **Mai a memoria**, e sempre con la data delle holdings.
 
 Passi, divieti e `scadenzario.py` sono in `references/08-manutenzione-e-batch.md`.

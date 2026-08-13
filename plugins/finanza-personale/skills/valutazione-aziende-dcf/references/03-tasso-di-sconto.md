@@ -60,8 +60,55 @@ privo di rischio di credito, con scadenza lunga — convenzionalmente dieci anni
 *Va preso nella valuta dei flussi.* Un'azienda americana che fattura in dollari si
 sconta sul Treasury decennale, non sul Bund: scontare flussi in dollari con un
 tasso in euro mescola due valute e due inflazioni attese, e l'errore non si vede
-perché il risultato resta un numero plausibile. È anche il motivo per cui il
-connettore dati esistente, che è euro-centrico, non basta per questo lavoro.
+perché il risultato resta un numero plausibile.
+
+**Lo dà lo strumento `risk_free` del connettore `finanza`, ed è BANCO.** Copre
+entrambe le valute — il dollaro dal Tesoro USA, l'euro dalla curva AAA dell'area
+euro della BCE — e la valuta è un **argomento della chiamata**, non una scelta
+lasciata a chi legge. Ogni risposta porta valore, fonte, data dell'osservazione e
+scostamento dalla data richiesta. *Fino all'agosto 2026 il connettore era
+euro-centrico e questo file diceva che non bastava: non è più vero.*
+
+**Una nota di convenzione.** Il CMT è quotato in composizione **semestrale**
+(bond-equivalent), il tasso euro in composizione **annuale**. La conversione è
+`(1 + t/2)² − 1` e su 4,70 vale **+5,5 punti base** (4,7552). Lo strumento la
+dichiara in ogni risposta ma **non produce il numero convertito**, di proposito:
+la conversione chiude uno solo dei due scarti — resta quello fra par yield e
+zero-coupon, che dipende dalla forma dell'intera curva — e un numero convertito
+farebbe sembrare confrontabili due grandezze che non lo sono.
+
+### Il numero dello strumento e quello dei siti finanziari non coincidono
+
+E non coincideranno mai. **È una proprietà della costruzione, non un errore**, e
+va saputa prima di vedere i due numeri affiancati.
+
+| | CMT del Tesoro (lo strumento) | decennale dei siti finanziari |
+|---|---|---|
+| che cos'è | un punto **interpolato a dieci anni esatti** sulla curva par | un **titolo vero**, con vita residua di ~9,9 anni |
+| da dove viene | quotazioni indicative lato denaro sui titoli di ultima emissione, rilevate dalla Fed di New York | quotazione di mercato |
+| quando | **chiusura delle 15:30 ET** | tempo reale |
+
+Il Tesoro lo dichiara: le quotazioni CMT *possono non coincidere con il rendimento
+esatto di nessun titolo specifico*, perché la curva fornisce un rendimento a dieci
+anni esatti anche quando nessun titolo in circolazione ha esattamente dieci anni di
+vita residua.
+
+**Misurato l'11 agosto 2026: 3 punti base** — 4,70% dallo strumento contro 4,73%
+letto a mano da un sito. Con verifica incrociata sulla **H.15 della Federal
+Reserve**, che ripubblica gli stessi CMT: **venti valori confrontati** (10Y, 5Y, 2Y
+e 30Y per il 4, 5, 6, 7 e 10 agosto), **tutti coincidenti al centesimo**. Il CMT
+dello strumento è confermato da una seconda fonte; il 4,73 non compare in nessuno
+dei due, e il massimo del mese era 4,72.
+
+**Quanto pesano 3 punti base.** Con la regola del §3 — un punto di WACC vale circa
+il 20% del valore — valgono circa lo **0,6%**. Non cambiano una conclusione, e
+questo è precisamente il motivo per cui la discrepanza va spiegata invece che
+inseguita: **senza questa riga, ogni volta che si guarda prima un sito e poi lo
+strumento si pensa che uno dei due sia rotto.**
+
+> Il difetto non era il 4,73. Era che **4,73 non portava con sé da dove veniva.**
+> Chi usa il numero di un sito deve dichiarare la fonte e l'ora; chi usa lo
+> strumento ha una fonte, una data e un metodo.
 
 **Il premio per il rischio azionario** — *equity risk premium*, ERP. Quanto in più
 del titolo di Stato si pretende per accettare il rischio di essere azionista
@@ -179,6 +226,10 @@ Non cella per cella. Si guardano tre cose.
 ---
 
 ## 5 · Il campo `risk_free` — che cosa fa e che cosa non fa
+
+**Da non confondere con lo strumento omonimo del connettore** (§2): quello
+*restituisce* il tasso, questo è un **campo di input del motore** in cui si scrive
+il numero che quello ha restituito.
 
 Nel motore esiste un campo `risk_free`, opzionale, in punti percentuali. **Non
 entra nel calcolo del WACC**: il WACC arriva già costruito. Serve a una cosa sola.

@@ -115,17 +115,19 @@ non è disponibile.
 | **2** | pagina o file di holdings dell'**emittente**, via web | **CAMPO** |
 | **3** | si **chiede all'utente** | CAMPO, con la fonte indicata da lui |
 
-**`etf_holdings` oggi non esiste.** Il connettore `finanza` non lo espone: è una
-delle estensioni candidate di una fase successiva, e la fase successiva non è
-questa. Il degrado è scritto così **fin da subito**, e la ragione è precisa:
-quando lo strumento comparirà, la skill lo userà senza essere riscritta. È la
-differenza fra una fase che *aggiunge* e una che *rifà*. Nel frattempo il
-livello 2 funziona, dichiarando CAMPO.
+**`etf_holdings` ora esiste**, ed è il livello 1. Il degrado era stato scritto in
+anticipo, e ha fatto esattamente il lavoro per cui era stato scritto: **la skill non
+è stata riscritta**, si è solo confermato il nome dello strumento. È la differenza
+fra una fase che *aggiunge* e una che *rifà* — verificata, non sperata.
+
+Ma il livello 1 **non copre tutto**, e i limiti sono parte dello strumento quanto ciò
+che restituisce: stanno in §7 e si leggono **prima** di usarlo. In breve: copre **SPDR
+e Xtrackers**; per ogni altro emittente il livello 1 non risolve e si scende al 2.
 
 Come si verifica il livello 1, in pratica: si guarda l'elenco degli strumenti
 effettivamente esposti dal connettore nella sessione corrente. Se `etf_holdings`
-c'è, si usa. Se non c'è, si scende — **senza commentare l'assenza come un guasto**,
-perché non lo è.
+c'è, si usa. Se non c'è — o se c'è ma l'emittente non è coperto — si scende, **senza
+commentare l'assenza come un guasto**, perché non lo è.
 
 Tre obblighi, validi a tutti e tre i livelli.
 
@@ -352,10 +354,10 @@ lettura.
 | Dato | Fonte oggi | Modalità |
 |---|---|---|
 | Anagrafica dell'ETF | `etf_anagrafica` del connettore | BANCO |
-| Holdings dell'ETF | pagina dell'emittente, via web | **CAMPO**, con la data delle holdings |
+| Holdings dell'ETF | `etf_holdings` del connettore per **SPDR e Xtrackers**; altrimenti pagina dell'emittente via web | **BANCO** dal connettore, **CAMPO** altrimenti — sempre con la data delle holdings |
 | Bilanci | documento caricato, o EDGAR via MCP di terzi | BANCO se documento, altrimenti dichiarato |
 | Prezzo di mercato | web, con data e ora | **CAMPO, sempre** |
-| Tasso privo di rischio | web (Treasury per il dollaro) | dichiarato |
+| Tasso privo di rischio | `risk_free` del connettore — dollaro dal Tesoro USA, euro dalla BCE | **BANCO** |
 
 Due note che evitano due errori opposti.
 
@@ -368,6 +370,48 @@ fonte, che è peggio di dichiarare CAMPO.
 chiede all'utente, tutto è CAMPO, e il documento si intitola *nota* e non
 *report* — è la regola generale di `metodo-fiduciario/SKILL.md` §2, che vale anche
 qui.
+
+### I limiti di `etf_holdings`, accertati
+
+Non sono avvertenze generiche: sono stati misurati.
+
+**Copre due emittenti: SPDR e Xtrackers.** Per gli altri risponde con un **errore
+esplicito che nomina il punto d'ingresso** dell'emittente — non un elenco vuoto e non
+una lista parziale. Un errore che dice dove guardare è un livello 2 già istruito.
+
+**Lo strumento dichiara due età, non una.** *Età del dato* (quanto è vecchia la
+fotografia) ed *età della copia* (da quanto tempo ce l'abbiamo) sono indipendenti: una
+copia scaricata stamattina di un file fermo a giugno è fresca come copia e vecchia come
+dato. Nel documento va **la data del dato**, che è quella che l'obbligo del passo 2 chiede.
+
+**Il metodo di replica non è verificato da nessuna fonte strutturata: lo stato normale
+è `non valutabile`.** Per nessuno dei due emittenti coperti esiste un campo che dichiari
+la replica — è stato cercato e non trovato. Lo strumento fa una ricerca a parole chiave
+fra le posizioni come difesa **secondaria**, e il suo silenzio non promuove niente:
+*«non ho trovato indizi di sintetica»* e *«l'emittente dichiara fisica»* non sono la
+stessa affermazione.
+
+> **La conseguenza operativa è il motivo per cui questo paragrafo esiste:** lo strumento
+> **non può escludere** che le posizioni restituite siano il **paniere di garanzia di un
+> ETF a swap** anziché le società dell'indice. Un ETF sintetico pubblica spesso azioni
+> normali, senza nessuna riga che si autoaccusi — e **un controllo che può scattare solo
+> quando la fonte si autoaccusa non è un controllo superato quando tace.** Per un ETF a
+> replica sintetica la lista economicamente rilevante è la composizione dell'**indice**, e
+> questo strumento non la fornisce.
+
+**`IE00BJ0KDR00` — l'ETF del comando tipo — è a replica FISICA integrale, verificato.**
+Doppia verifica: l'emittente lo dichiara sulla pagina prodotto (*Direct Replication
+(physically)*, *Full Replication*) e il file lo conferma da sé, 533 posizioni in azioni
+americane con pesi coerenti con MSCI USA. Per **questo** ETF il `non valutabile` non è
+un dubbio aperto: è il limite dello strumento, non una proprietà del caso.
+
+**iShares non è coperto, e per un motivo in più degli altri.** Oltre alla risoluzione del
+file, `MARCHI` — la tabella che riconosce l'emittente dalla denominazione — cerca
+**sottostringhe** in un campo che le sedi di negoziazione abbreviano a piacere: la
+denominazione `iShsIII-Core MSCI World…` non contiene `ISHARES`, e l'emittente resta non
+riconosciuto. Il difetto quindi **non riguarda solo iShares**: `MARCHI` può tacere su
+qualunque emittente la cui denominazione arrivi abbreviata. Per un ISIN iShares l'errore
+che esce oggi è *«emittente non riconosciuto»*, **non** quello con il punto d'ingresso.
 
 ---
 
@@ -384,8 +428,10 @@ Cinque cose da ricordare.
 
 1. **Il comando non produce N valutazioni**: produce uno scadenzario, qualche
    riesame leggero eseguito davvero, e una coda.
-2. **Le holdings hanno tre livelli di degrado e una data.** `etf_holdings` oggi
-   non esiste, e il degrado è scritto lo stesso.
+2. **Le holdings hanno tre livelli di degrado e due date.** `etf_holdings` ora esiste
+   e copre SPDR e Xtrackers; per gli altri si scende al livello 2. Il metodo di
+   replica resta `non valutabile`: lo strumento **non può escludere** il paniere di
+   garanzia di un ETF a swap.
 3. **Il prezzo non si conserva mai**; le ipotesi scadono per evento, non per
    calendario.
 4. **Prima di rifare una valutazione si riapre la precedente** e si scrive che

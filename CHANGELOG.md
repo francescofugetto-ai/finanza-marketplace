@@ -1,5 +1,62 @@
 # Changelog — finanza-personale
 
+## 2026-08-13 — il connettore arriva nella skill: `etf_holdings` e `risk_free`
+
+Chiusura della Fase B dal lato del plugin. Il connettore `finanza` espone due
+strumenti nuovi, e questa e' la sessione che li fa arrivare al metodo.
+**Modifica minima, e voluta tale**: la skill non e' stata riscritta.
+
+**`valutazione-aziende-dcf/SKILL.md`**
+
+- Il connettore entra nella **gerarchia delle fonti** del passo 2, per il tasso
+  privo di rischio. Il **web resta solo per il prezzo**.
+- `etf_holdings` **ora esiste** e copre SPDR e Xtrackers. Era scritto «oggi non
+  esiste» apposta, perche' la skill non dovesse essere riscritta il giorno in
+  cui fosse arrivato: non lo e' stata, ed e' la scommessa della Fase A
+  verificata invece che sperata.
+- **`risk_free` e' ora due cose omonime** — un campo di input del motore e uno
+  strumento del connettore — e il testo che li nomina entrambi lo dichiara.
+  Quando uno strumento nuovo prende il nome di un campo esistente, la
+  disambiguazione va scritta subito: dopo, la confusione sembra l'uso normale.
+- **Il prezzo di mercato resta CAMPO**, e nessuna riga lo tocca. Ora e' l'unica
+  fonte non-BANCO della tabella, quindi si legge come una scelta invece che come
+  un limite residuo.
+
+**`references/03-tasso-di-sconto.md`**
+
+- Il tasso si prende da `risk_free`, nella valuta dei flussi. La frase «il
+  connettore e' euro-centrico e non basta per questo lavoro» era diventata falsa.
+- **Il CMT del Tesoro e il decennale dei siti finanziari non coincideranno mai**,
+  per costruzione e non per errore: uno e' un punto interpolato a dieci anni
+  esatti sulla chiusura delle 15:30, l'altro un titolo con vita residua di ~9,9
+  anni quotato in tempo reale. Scarto misurato l'11 agosto: **3 punti base**, con
+  verifica incrociata sulla **H.15 della Fed** — venti valori, tutti coincidenti
+  al centesimo. Senza questa riga, chi guarda prima un sito e poi lo strumento
+  pensa che uno dei due sia rotto.
+- La convenzione di composizione: il CMT e' **semestrale**, il tasso euro
+  **annuale**. La formula c'e', il numero convertito no — chiuderebbe uno solo
+  dei due scarti facendo sembrare confrontabili due grandezze che non lo sono.
+
+**`references/08-manutenzione-e-batch.md`**
+
+- Livello 1 del degrado raggiungibile, con i **limiti accertati** accanto:
+  due emittenti coperti; il metodo di replica **non e' verificato da nessuna
+  fonte strutturata**, quindi lo stato normale e' `non_valutabile` e lo strumento
+  **non puo' escludere** che le posizioni siano il paniere di garanzia di un ETF
+  a swap; iShares non e' coperto anche perche' `MARCHI` cerca sottostringhe in un
+  campo che le sedi di negoziazione abbreviano a piacere; `IE00BJ0KDR00` — l'ETF
+  del comando tipo — e' a replica **fisica integrale**, verificato.
+
+> Un controllo che puo' scattare solo quando la fonte si autoaccusa non e' un
+> controllo superato quando tace.
+
+**Fuori da questo repository** — cartella madre e connettore, che non sono
+versionati — i conteggi degli strumenti sono stati chiusi: erano **dieci
+dichiarazioni a mano in sette file, quattro valori in cinque grafie** (13, 14,
+quattordici, quindici, 16) e nessuna calcolata. Ora una e' calcolata, sei sono
+state tolte, tre restano a mano e **due di queste sono difese da una prova
+nuova**. Il collaudo del connettore passa da **101 a 104**.
+
 ## 2026-08-08 — l'ottava skill: `valutazione-aziende-dcf`
 
 Valutazione di singole aziende quotate con il metodo dei flussi di cassa
